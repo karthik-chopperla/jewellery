@@ -76,7 +76,7 @@
 ## 🚀 Quick Setup & Installation
 
 ### Prerequisites
-- PHP 8.2 or higher
+- PHP 8.4.1 or higher
 - Composer 2.x
 - Node.js 18+ & npm
 - XAMPP / MySQL Server
