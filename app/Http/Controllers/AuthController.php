@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LoginHistory;
+use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,8 +15,13 @@ class AuthController extends Controller
     public function showLogin()
     {
         if (Auth::check()) {
-            return redirect()->route('dashboard');
+            $user = Auth::user();
+
+            if ($user instanceof User) {
+                return redirect()->route($this->homeRoute($user));
+            }
         }
+
         return view('auth.login');
     }
 
@@ -26,10 +32,11 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        $throttleKey = Str::transliterate(Str::lower($credentials['email']) . '|' . $request->ip());
+        $throttleKey = Str::transliterate(Str::lower($credentials['email']).'|'.$request->ip());
 
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
             $seconds = RateLimiter::availableIn($throttleKey);
+
             return back()->withErrors([
                 'email' => "Too many login attempts. Please try again in {$seconds} seconds.",
             ])->onlyInput('email');
@@ -38,7 +45,12 @@ class AuthController extends Controller
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $user = Auth::user();
 
-            if (!$user->is_active) {
+            if (! $user instanceof User) {
+                Auth::logout();
+                abort(403);
+            }
+
+            if (! $user->is_active) {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
@@ -71,7 +83,7 @@ class AuthController extends Controller
 
             AuditService::log('Auth', 'login', "{$user->name} logged in");
 
-            return redirect()->intended(route('dashboard'));
+            return redirect()->intended(route($this->homeRoute($user)));
         }
 
         RateLimiter::hit($throttleKey, 60);
@@ -90,11 +102,36 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         if (Auth::check()) {
-            AuditService::log('Auth', 'logout', Auth::user()->name . ' logged out');
+            AuditService::log('Auth', 'logout', Auth::user()->name.' logged out');
         }
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('login')->with('status', 'You have been signed out.');
+    }
+
+    private function homeRoute(User $user): string
+    {
+        foreach ([
+            'dashboard' => 'dashboard',
+            'pos' => 'pos.index',
+            'inventory' => 'inventory.index',
+            'rates' => 'rates.index',
+            'customers' => 'crm.index',
+            'schemes' => 'schemes.index',
+            'manufacturing' => 'workshop.index',
+            'repairs' => 'workshop.index',
+            'custom_orders' => 'workshop.index',
+            'reports' => 'admin.reports',
+            'purchases' => 'purchases.index',
+            'accounts' => 'finance.index',
+        ] as $permission => $route) {
+            if ($user->hasPermission($permission)) {
+                return $route;
+            }
+        }
+
+        abort(403);
     }
 }

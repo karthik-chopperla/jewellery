@@ -62,6 +62,8 @@
 - Approval workflows for manager overrides (rate changes, high discounts, invoice cancellations).
 - Tamper-evident activity audit logs and login history tracking.
 
+Module permissions are enforced on routes as well as navigation, with missing role permissions denied by default. Render refreshes the role-permission seed on startup. This is module-level access control; branch-level data isolation is not yet implemented, so this demo should use sample data only.
+
 ---
 
 ## 🛠️ Technology Stack

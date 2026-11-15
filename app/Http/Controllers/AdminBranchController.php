@@ -43,7 +43,7 @@ class AdminBranchController extends Controller
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6',
             'branch_id' => 'required|exists:branches,id',
-            'role' => 'required|string',
+            'role' => 'required|exists:role_permissions,role',
             'phone' => 'nullable|string',
             'salary' => 'nullable|numeric|min:0',
             'commission_rate' => 'nullable|numeric|min:0',
@@ -58,7 +58,7 @@ class AdminBranchController extends Controller
             'password' => Hash::make($data['password']),
             'role' => $data['role'],
             'phone' => $data['phone'] ?? null,
-            'employee_code' => 'EMP-' . str_pad($next, 3, '0', STR_PAD_LEFT),
+            'employee_code' => 'EMP-'.str_pad($next, 3, '0', STR_PAD_LEFT),
             'salary' => $data['salary'] ?? 0,
             'commission_rate' => $data['commission_rate'] ?? 0,
             'monthly_target' => $data['monthly_target'] ?? 0,
@@ -126,6 +126,7 @@ class AdminBranchController extends Controller
         ]);
 
         Branch::create($data);
+
         return back()->with('success', 'Showroom branch created.');
     }
 
@@ -145,9 +146,10 @@ class AdminBranchController extends Controller
     public function securityAndApprovals()
     {
         $approvals = ApprovalRequest::with(['requester', 'approver', 'branch'])->latest()->get();
-        $loginHistories = LoginHistory::with('user')->latest('logged_in_at')->take(30)->get();
-        $activityLogs = ActivityLog::with(['user', 'branch'])->latest()->take(40)->get();
-        $rolePermissions = RolePermission::all();
+        $canViewSecurity = Auth::user()->hasPermission('security');
+        $loginHistories = $canViewSecurity ? LoginHistory::with('user')->latest('logged_in_at')->take(30)->get() : collect();
+        $activityLogs = $canViewSecurity ? ActivityLog::with(['user', 'branch'])->latest()->take(40)->get() : collect();
+        $rolePermissions = $canViewSecurity ? RolePermission::all() : collect();
 
         return view('admin.security', compact('approvals', 'loginHistories', 'activityLogs', 'rolePermissions'));
     }
@@ -163,6 +165,7 @@ class AdminBranchController extends Controller
         ]);
 
         AuditService::log('Approvals', $status, "Approval #{$approval->id} ({$approval->type}) {$status}", $approval);
+
         return back()->with('success', "Request #{$approval->id} {$status}.");
     }
 
@@ -198,4 +201,3 @@ class AdminBranchController extends Controller
         ));
     }
 }
-

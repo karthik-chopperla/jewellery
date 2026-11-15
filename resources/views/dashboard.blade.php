@@ -15,12 +15,12 @@
             </select>
         </form>
         <div class="flex items-center gap-2 text-xs">
-            @if($pendingApprovals > 0)
+            @if($pendingApprovals > 0 && auth()->user()->hasPermission(['security', 'approvals']))
                 <a href="{{ route('admin.security') }}" class="bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full font-medium">
                     ⚠ {{ $pendingApprovals }} Pending Approvals
                 </a>
             @endif
-            @if($lowConsumables > 0)
+            @if($lowConsumables > 0 && auth()->user()->hasPermission('inventory'))
                 <a href="{{ route('inventory.index') }}" class="bg-rose-100 text-rose-800 px-3 py-1.5 rounded-full font-medium">
                     📦 {{ $lowConsumables }} Low Consumables
                 </a>
@@ -121,7 +121,9 @@
         <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
             <div class="flex items-center justify-between mb-3">
                 <h2 class="text-sm font-semibold text-slate-800">Recent Showroom Invoices</h2>
-                <a href="{{ route('pos.invoices') }}" class="text-xs text-amber-700 font-medium hover:underline">View All →</a>
+                @if(auth()->user()->hasPermission('pos'))
+                    <a href="{{ route('pos.invoices') }}" class="text-xs text-amber-700 font-medium hover:underline">View All →</a>
+                @endif
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">

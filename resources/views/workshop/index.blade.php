@@ -7,6 +7,7 @@
     <!-- 3 Creation Forms -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Manufacturing Job -->
+        @if(auth()->user()->hasPermission('manufacturing'))
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h2 class="text-sm font-semibold text-slate-800 mb-3">New Karigar Manufacturing Job</h2>
             <form action="{{ route('workshop.mfg.store') }}" method="POST" class="space-y-2 text-xs">
@@ -31,8 +32,10 @@
                 <button class="w-full bg-amber-600 text-white py-2 rounded-lg font-semibold">Issue Metal & Start Job</button>
             </form>
         </div>
+        @endif
 
         <!-- Custom Order -->
+        @if(auth()->user()->hasPermission('custom_orders'))
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h2 class="text-sm font-semibold text-slate-800 mb-3">New Custom Jewellery Order</h2>
             <form action="{{ route('workshop.custom.store') }}" method="POST" class="space-y-2 text-xs">
@@ -55,8 +58,10 @@
                 <button class="w-full bg-slate-900 text-white py-2 rounded-lg font-semibold">Create Custom Order</button>
             </form>
         </div>
+        @endif
 
         <!-- Repair Job -->
+        @if(auth()->user()->hasPermission('repairs'))
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h2 class="text-sm font-semibold text-slate-800 mb-3">Register Jewellery Repair</h2>
             <form action="{{ route('workshop.repair.store') }}" method="POST" class="space-y-2 text-xs">
@@ -78,10 +83,12 @@
                 <button class="w-full bg-slate-800 text-white py-2 rounded-lg font-semibold">Log Repair Job</button>
             </form>
         </div>
+        @endif
     </div>
 
     <!-- Lists -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        @if(auth()->user()->hasPermission('manufacturing'))
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h3 class="text-sm font-semibold text-slate-800 mb-3">Manufacturing Job Work</h3>
             <div class="space-y-3 text-xs">
@@ -110,7 +117,9 @@
                 @endforeach
             </div>
         </div>
+        @endif
 
+        @if(auth()->user()->hasPermission('custom_orders'))
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h3 class="text-sm font-semibold text-slate-800 mb-3">Custom Jewellery Orders</h3>
             <div class="space-y-3 text-xs">
@@ -139,7 +148,9 @@
                 @endforeach
             </div>
         </div>
+        @endif
 
+        @if(auth()->user()->hasPermission('repairs'))
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h3 class="text-sm font-semibold text-slate-800 mb-3">Repair & Service Jobs</h3>
             <div class="space-y-3 text-xs">
@@ -168,6 +179,7 @@
                 @endforeach
             </div>
         </div>
+        @endif
     </div>
 </div>
 @endsection

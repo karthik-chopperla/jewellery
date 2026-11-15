@@ -291,19 +291,44 @@ class JewelleryErpTest extends TestCase
         $dashRes->assertSee('Royal Heritage Jewellers');
     }
 
-    public function test_all_roles_have_admin_access(): void
+    public function test_role_and_module_permissions_restrict_access(): void
     {
         $sales = User::where('role', 'salesperson')->firstOrFail();
-        $this->assertTrue($sales->hasRole('admin'));
-        $this->assertTrue($sales->hasRole('manager'));
-        $this->assertTrue($sales->hasRole(['admin', 'manager']));
+        $this->assertTrue($sales->hasRole('salesperson'));
+        $this->assertFalse($sales->hasRole('admin'));
+        $this->assertFalse($sales->hasRole(['admin', 'manager']));
+        $this->assertTrue($sales->hasPermission('pos'));
+        $this->assertFalse($sales->hasPermission('reports'));
+        $unknownRole = User::make(['role' => 'unrecognized']);
+        $this->assertFalse($unknownRole->hasRole('admin'));
+        $this->assertFalse($unknownRole->hasPermission('pos'));
 
         $this->actingAs($sales);
-        $res = $this->get('/security');
-        $res->assertStatus(200);
+        $this->get('/pos')->assertOk();
+        $this->get('/security')->assertForbidden();
+        $this->get('/settings')->assertForbidden();
+        $this->get('/rates')->assertForbidden();
 
-        $resSettings = $this->get('/settings');
-        $resSettings->assertStatus(200);
+        $manager = User::where('role', 'manager')->firstOrFail();
+        $this->actingAs($manager);
+        $this->get('/rates')->assertOk();
+        $this->get('/staff')->assertOk();
+        $this->get('/finance')->assertForbidden();
+        $this->post('/staff', [])->assertForbidden();
+
+        $artisan = User::where('role', 'artisan')->firstOrFail();
+        $this->actingAs($artisan);
+        $this->get('/workshop')->assertOk()->assertDontSee('href="'.route('dashboard').'"');
+        $this->get('/')->assertForbidden();
+        $this->post('/custom-orders', [])->assertForbidden();
+    }
+
+    public function test_salesperson_login_redirects_to_an_allowed_module(): void
+    {
+        $this->post(route('login.post'), [
+            'email' => 'ananya@jewelerp.in',
+            'password' => 'password',
+        ])->assertRedirect(route('pos.index'));
     }
 
     public function test_delete_operations_across_all_modules(): void
@@ -517,4 +542,3 @@ class JewelleryErpTest extends TestCase
         $directRes->assertRedirect();
     }
 }
-

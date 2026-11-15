@@ -27,7 +27,6 @@ use App\Models\Product;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseOrder;
 use App\Models\RepairJob;
-use App\Models\RolePermission;
 use App\Models\SchemeInstallment;
 use App\Models\StockMovement;
 use App\Models\Subcategory;
@@ -141,17 +140,7 @@ class DatabaseSeeder extends Seeder
             'salary' => 70000,
         ]);
 
-        // Role Permissions
-        foreach ([
-            'admin' => ['*'],
-            'manager' => ['pos', 'inventory', 'rates', 'approvals', 'customers', 'reports', 'staff'],
-            'cashier' => ['pos', 'customers', 'schemes', 'repairs'],
-            'salesperson' => ['pos', 'customers', 'custom_orders'],
-            'artisan' => ['manufacturing', 'repairs'],
-            'accountant' => ['accounts', 'reports', 'purchases'],
-        ] as $role => $perms) {
-            RolePermission::create(['role' => $role, 'permissions' => $perms]);
-        }
+        $this->call(RolePermissionSeeder::class);
 
         // 3. Metal Rates (7-day history + today)
         $baseGold24 = 7850;

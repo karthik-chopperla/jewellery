@@ -24,29 +24,38 @@
         <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-5 text-sm">
             <div>
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Overview</div>
+                @if(auth()->user()->hasPermission('dashboard'))
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('dashboard') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>📊</span> Dashboard & Analytics
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission('rates'))
                 <a href="{{ route('rates.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('rates.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>🪙</span> Metal Rates
                 </a>
+                @endif
             </div>
 
             <div>
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Billing & Exchange</div>
+                @if(auth()->user()->hasPermission('pos'))
                 <a href="{{ route('pos.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('pos.index') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>🧾</span> Jewellery POS
                 </a>
                 <a href="{{ route('pos.invoices') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('pos.invoices', 'pos.invoice') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>↩️</span> Invoices & Returns
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission('old_gold'))
                 <a href="{{ route('old_gold.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('old_gold.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>⚖️</span> Old Gold Exchange
                 </a>
+                @endif
             </div>
 
             <div>
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Catalog & Vault</div>
+                @if(auth()->user()->hasPermission('inventory'))
                 <a href="{{ route('products.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('products.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>💍</span> Product Master
                 </a>
@@ -59,44 +68,65 @@
                 <a href="{{ route('stones.hallmark') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('stones.hallmark') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>💎</span> Diamonds & HUID
                 </a>
+                @endif
             </div>
 
             <div>
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Operations</div>
+                @if(auth()->user()->hasPermission('customers'))
                 <a href="{{ route('crm.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('crm.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>👥</span> CRM, Loyalty & Ads
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission('schemes'))
                 <a href="{{ route('schemes.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('schemes.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>🏦</span> Gold Savings Schemes
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission(['manufacturing', 'custom_orders', 'repairs']))
                 <a href="{{ route('workshop.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('workshop.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>🛠️</span> Karigar, Custom & Repair
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission('purchases'))
                 <a href="{{ route('purchases.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('purchases.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>🚚</span> Suppliers & Purchases
                 </a>
+                @endif
             </div>
 
             <div>
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Finance & Admin</div>
+                @if(auth()->user()->hasPermission('accounts'))
                 <a href="{{ route('finance.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('finance.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>📒</span> Accounts & Finance
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission('staff'))
                 <a href="{{ route('admin.staff') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('admin.staff') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>🪪</span> Staff & Attendance
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission('branches'))
                 <a href="{{ route('admin.branches') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('admin.branches') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>🏢</span> Multi-Branch
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission(['security', 'approvals']))
                 <a href="{{ route('admin.security') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('admin.security') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>🔐</span> Approvals & Audit
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission('reports'))
                 <a href="{{ route('admin.reports') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('admin.reports') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>📈</span> BI Reports
                 </a>
+                @endif
+                @if(auth()->user()->hasPermission('settings'))
                 <a href="{{ route('settings.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('settings.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span>⚙️</span> Showroom Settings
                 </a>
+                @endif
             </div>
         </nav>
 
@@ -120,7 +150,9 @@
                     <span class="text-amber-300">|</span>
                     <span>Silver: ₹{{ number_format(\App\Models\MetalRate::latestRate('Silver', '999'), 0) }}/g</span>
                 </div>
+                @if(auth()->user()->hasPermission('pos'))
                 <a href="{{ route('pos.index') }}" class="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-lg font-medium transition">+ New Bill</a>
+                @endif
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
                     <button type="submit" class="text-slate-500 hover:text-slate-800 font-medium px-2 py-1">Logout</button>

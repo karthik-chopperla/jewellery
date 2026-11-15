@@ -15,14 +15,25 @@ use Illuminate\Support\Str;
 
 class WorkshopController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $manufacturingOrders = ManufacturingOrder::with(['branch', 'artisan'])->latest()->get();
-        $customOrders = CustomOrder::with(['branch', 'customer'])->latest()->get();
-        $repairJobs = RepairJob::with(['branch', 'customer', 'artisan'])->latest()->get();
+        $user = $request->user();
+        $canManufacture = $user->hasPermission('manufacturing');
+        $canCustomOrders = $user->hasPermission('custom_orders');
+        $canRepair = $user->hasPermission('repairs');
+
+        $manufacturingOrders = $canManufacture
+            ? ManufacturingOrder::with(['branch', 'artisan'])->latest()->get()
+            : collect();
+        $customOrders = $canCustomOrders
+            ? CustomOrder::with(['branch', 'customer'])->latest()->get()
+            : collect();
+        $repairJobs = $canRepair
+            ? RepairJob::with(['branch', 'customer', 'artisan'])->latest()->get()
+            : collect();
         $branches = Branch::where('is_active', true)->get();
-        $customers = Customer::orderBy('name')->get();
-        $artisans = User::where('role', 'artisan')->get();
+        $customers = $canCustomOrders || $canRepair ? Customer::orderBy('name')->get() : collect();
+        $artisans = $canManufacture || $canRepair ? User::where('role', 'artisan')->get() : collect();
         $rate22k = MetalRate::latestRate('Gold', '22K');
 
         return view('workshop.index', compact(
@@ -46,12 +57,13 @@ class WorkshopController extends Controller
         ]);
 
         $order = ManufacturingOrder::create($data + [
-            'job_no' => 'MFG-' . strtoupper(Str::random(6)),
+            'job_no' => 'MFG-'.strtoupper(Str::random(6)),
             'stage' => 'metal_issued',
             'status' => 'in_progress',
         ]);
 
         AuditService::log('Manufacturing', 'create', "Issued {$order->issued_weight}g for {$order->design_name}", $order);
+
         return back()->with('success', "Manufacturing job {$order->job_no} created.");
     }
 
@@ -93,7 +105,7 @@ class WorkshopController extends Controller
         ]);
 
         $order = CustomOrder::create($data + [
-            'order_no' => 'ORD-' . strtoupper(Str::random(6)),
+            'order_no' => 'ORD-'.strtoupper(Str::random(6)),
             'status' => 'in_production',
         ]);
 
@@ -103,6 +115,7 @@ class WorkshopController extends Controller
     public function updateCustomOrderStatus(CustomOrder $order, Request $request)
     {
         $order->update(['status' => $request->validate(['status' => 'required|string'])['status']]);
+
         return back()->with('success', "Custom order {$order->order_no} updated.");
     }
 
@@ -120,7 +133,7 @@ class WorkshopController extends Controller
         ]);
 
         $job = RepairJob::create($data + [
-            'job_no' => 'REP-' . strtoupper(Str::random(6)),
+            'job_no' => 'REP-'.strtoupper(Str::random(6)),
             'status' => 'received',
         ]);
 
@@ -135,6 +148,7 @@ class WorkshopController extends Controller
         ]);
 
         $repairJob->update($data);
+
         return back()->with('success', "Repair {$repairJob->job_no} updated.");
     }
 
@@ -144,6 +158,7 @@ class WorkshopController extends Controller
         $order->delete();
 
         AuditService::log('Manufacturing', 'delete', "Deleted manufacturing order {$jobNo}");
+
         return back()->with('success', "Manufacturing order {$jobNo} deleted.");
     }
 
@@ -153,6 +168,7 @@ class WorkshopController extends Controller
         $order->delete();
 
         AuditService::log('CustomOrder', 'delete', "Deleted custom order {$orderNo}");
+
         return back()->with('success', "Custom order {$orderNo} deleted.");
     }
 
@@ -162,7 +178,7 @@ class WorkshopController extends Controller
         $repairJob->delete();
 
         AuditService::log('RepairJob', 'delete', "Deleted repair job {$jobNo}");
+
         return back()->with('success', "Repair job {$jobNo} deleted.");
     }
 }
-

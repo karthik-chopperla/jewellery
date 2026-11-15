@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -44,8 +45,22 @@ class User extends Authenticatable
         return $this->hasMany(Invoice::class, 'salesperson_id');
     }
 
+    public function rolePermission(): HasOne
+    {
+        return $this->hasOne(RolePermission::class, 'role', 'role');
+    }
+
     public function hasRole(string|array $roles): bool
     {
-        return true; // All roles have full administrative access across the entire system
+        return in_array($this->role, (array) $roles, true);
+    }
+
+    public function hasPermission(string|array $permissions): bool
+    {
+        $grantedPermissions = $this->rolePermission?->permissions ?? [];
+        $requestedPermissions = (array) $permissions;
+
+        return in_array('*', $grantedPermissions, true)
+            || array_intersect($requestedPermissions, $grantedPermissions) !== [];
     }
 }

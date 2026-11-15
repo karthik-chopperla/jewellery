@@ -30,4 +30,4 @@ RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoload
 
 USER www-data
 
-CMD ["sh", "-c", "php artisan migrate --force && if [ -n \"${DEMO_ADMIN_PASSWORD:-}\" ]; then php artisan db:seed --class=DemoAdminSeeder --force; fi && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
+CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --class=RolePermissionSeeder --force && if [ -n \"${DEMO_ADMIN_PASSWORD:-}\" ]; then php artisan db:seed --class=DemoAdminSeeder --force; fi && php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]

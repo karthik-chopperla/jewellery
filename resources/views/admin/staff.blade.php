@@ -5,6 +5,7 @@
 @section('content')
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="space-y-6">
+        @if(auth()->user()->hasPermission('staff_manage'))
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h2 class="text-sm font-semibold text-slate-800 mb-3">Register Staff / Employee</h2>
             <form action="{{ route('admin.staff.store') }}" method="POST" class="space-y-2.5 text-xs">
@@ -32,6 +33,7 @@
                 <button class="w-full bg-amber-600 text-white font-semibold py-2 rounded-lg">Add Staff</button>
             </form>
         </div>
+        @endif
 
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h2 class="text-sm font-semibold text-slate-800 mb-3">Mark Today's Attendance</h2>
@@ -62,6 +64,7 @@
                         <td class="px-3 py-2 text-right">{{ $u->commission_rate }}%</td>
                         <td class="px-3 py-2 text-right font-semibold">₹{{ number_format($u->monthly_target, 0) }}</td>
                         <td class="px-3 py-2 text-right whitespace-nowrap">
+                            @if(auth()->user()->hasPermission('staff_manage'))
                             @if(auth()->id() !== $u->id)
                                 <form action="{{ route('admin.staff.destroy', $u) }}" method="POST" class="inline" onsubmit="return confirm('Delete employee {{ $u->name }}?');">
                                     @csrf
@@ -70,6 +73,7 @@
                                 </form>
                             @else
                                 <span class="text-slate-400">Current</span>
+                            @endif
                             @endif
                         </td>
                     </tr>
