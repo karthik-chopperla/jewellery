@@ -13,7 +13,7 @@
     <aside class="no-print w-64 bg-slate-900 text-slate-200 flex-shrink-0 flex flex-col border-r border-slate-800">
         <div class="px-5 py-4 border-b border-slate-800 flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-slate-950 font-bold text-lg shadow">
-                ✦
+                <span data-sidebar-icon="Gem" class="inline-flex h-5 w-5" aria-hidden="true"></span>
             </div>
             <div>
                 <div class="font-bold text-white tracking-tight truncate max-w-[150px]" title="{{ $businessName }}">{{ $businessName }}</div>
@@ -26,12 +26,12 @@
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Overview</div>
                 @if(auth()->user()->hasPermission('dashboard'))
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('dashboard') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>📊</span> Dashboard & Analytics
+                    <span data-sidebar-icon="LayoutDashboard" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Dashboard & Analytics
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission('rates'))
                 <a href="{{ route('rates.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('rates.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>🪙</span> Metal Rates
+                    <span data-sidebar-icon="Coins" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Metal Rates
                 </a>
                 @endif
             </div>
@@ -40,15 +40,15 @@
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Billing & Exchange</div>
                 @if(auth()->user()->hasPermission('pos'))
                 <a href="{{ route('pos.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('pos.index') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>🧾</span> Jewellery POS
+                    <span data-sidebar-icon="ShoppingCart" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Jewellery POS
                 </a>
                 <a href="{{ route('pos.invoices') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('pos.invoices', 'pos.invoice') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>↩️</span> Invoices & Returns
+                    <span data-sidebar-icon="ReceiptText" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Invoices & Returns
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission('old_gold'))
                 <a href="{{ route('old_gold.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('old_gold.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>⚖️</span> Old Gold Exchange
+                    <span data-sidebar-icon="RefreshCcw" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Old Gold Exchange
                 </a>
                 @endif
             </div>
@@ -57,16 +57,16 @@
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Catalog & Vault</div>
                 @if(auth()->user()->hasPermission('inventory'))
                 <a href="{{ route('products.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('products.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>💍</span> Product Master
+                    <span data-sidebar-icon="Gem" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Product Master
                 </a>
                 <a href="{{ route('inventory.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('inventory.index') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>📦</span> Inventory & Stock
+                    <span data-sidebar-icon="Package" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Inventory & Stock
                 </a>
                 <a href="{{ route('inventory.labels') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('inventory.labels') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>🏷️</span> Barcode & Tags
+                    <span data-sidebar-icon="Barcode" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Barcode & Tags
                 </a>
                 <a href="{{ route('stones.hallmark') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('stones.hallmark') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>💎</span> Diamonds & HUID
+                    <span data-sidebar-icon="Gem" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Diamonds & HUID
                 </a>
                 @endif
             </div>
@@ -75,22 +75,22 @@
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Operations</div>
                 @if(auth()->user()->hasPermission('customers'))
                 <a href="{{ route('crm.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('crm.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>👥</span> CRM, Loyalty & Ads
+                    <span data-sidebar-icon="Users" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> CRM, Loyalty & Ads
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission('schemes'))
                 <a href="{{ route('schemes.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('schemes.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>🏦</span> Gold Savings Schemes
+                    <span data-sidebar-icon="PiggyBank" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Gold Savings Schemes
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission(['manufacturing', 'custom_orders', 'repairs']))
                 <a href="{{ route('workshop.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('workshop.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>🛠️</span> Karigar, Custom & Repair
+                    <span data-sidebar-icon="Hammer" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Karigar, Custom & Repair
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission('purchases'))
                 <a href="{{ route('purchases.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('purchases.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>🚚</span> Suppliers & Purchases
+                    <span data-sidebar-icon="Truck" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Suppliers & Purchases
                 </a>
                 @endif
             </div>
@@ -99,32 +99,32 @@
                 <div class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Finance & Admin</div>
                 @if(auth()->user()->hasPermission('accounts'))
                 <a href="{{ route('finance.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('finance.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>📒</span> Accounts & Finance
+                    <span data-sidebar-icon="Wallet" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Accounts & Finance
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission('staff'))
                 <a href="{{ route('admin.staff') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('admin.staff') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>🪪</span> Staff & Attendance
+                    <span data-sidebar-icon="UsersRound" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Staff & Attendance
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission('branches'))
                 <a href="{{ route('admin.branches') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('admin.branches') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>🏢</span> Multi-Branch
+                    <span data-sidebar-icon="Building2" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Multi-Branch
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission(['security', 'approvals']))
                 <a href="{{ route('admin.security') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('admin.security') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>🔐</span> Approvals & Audit
+                    <span data-sidebar-icon="ShieldCheck" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Approvals & Audit
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission('reports'))
                 <a href="{{ route('admin.reports') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('admin.reports') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>📈</span> BI Reports
+                    <span data-sidebar-icon="ChartNoAxesCombined" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> BI Reports
                 </a>
                 @endif
                 @if(auth()->user()->hasPermission('settings'))
                 <a href="{{ route('settings.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('settings.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
-                    <span>⚙️</span> Showroom Settings
+                    <span data-sidebar-icon="Settings" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Showroom Settings
                 </a>
                 @endif
             </div>
