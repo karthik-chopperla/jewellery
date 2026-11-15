@@ -37,17 +37,19 @@
                             </td>
                             <td class="px-3 py-2 text-right space-x-2">
                                 <a href="{{ route('pos.invoice', $inv) }}" class="text-xs text-slate-600 hover:underline">Print</a>
-                                @if($inv->status !== 'cancelled')
+                                @if($inv->status !== 'cancelled' && auth()->user()->hasPermission('pos_manage'))
                                     <form action="{{ route('pos.cancel', $inv) }}" method="POST" class="inline">
                                         @csrf
                                         <button class="text-xs text-rose-600 hover:underline">Cancel</button>
                                     </form>
                                 @endif
+                                @if(auth()->user()->hasPermission('pos_manage'))
                                 <form action="{{ route('pos.invoices.destroy', $inv) }}" method="POST" class="inline" onsubmit="return confirm('Delete invoice {{ $inv->invoice_no }}? This will restore stock.');">
                                     @csrf
                                     @method('DELETE')
                                     <button class="text-xs text-rose-700 font-medium hover:underline">Delete</button>
                                 </form>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
@@ -102,11 +104,13 @@
                         </div>
                         <div class="text-right flex items-center gap-2">
                             <span class="font-semibold">₹{{ number_format($ret->refund_amount, 0) }}</span>
+                            @if(auth()->user()->hasPermission('pos_manage'))
                             <form action="{{ route('pos.returns.destroy', $ret) }}" method="POST" class="inline" onsubmit="return confirm('Delete return record {{ $ret->return_no }}?');">
                                 @csrf
                                 @method('DELETE')
                                 <button class="text-[11px] text-rose-600 hover:underline">Delete</button>
                             </form>
+                            @endif
                         </div>
                     </div>
                 @empty

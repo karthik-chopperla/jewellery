@@ -107,11 +107,13 @@
                                 </select>
                                 <button class="bg-slate-800 text-white px-2 py-1 rounded">Update</button>
                             </form>
+                            @if(auth()->user()->hasPermission('workshop_manage'))
                             <form action="{{ route('workshop.mfg.destroy', $m) }}" method="POST" class="inline" onsubmit="return confirm('Delete manufacturing order {{ $m->job_no }}?');">
                                 @csrf
                                 @method('DELETE')
                                 <button class="text-rose-600 hover:underline px-1 py-1">Delete</button>
                             </form>
+                            @endif
                         </div>
                     </div>
                 @endforeach
@@ -138,11 +140,13 @@
                                 </select>
                                 <button class="bg-slate-800 text-white px-2 py-1 rounded">Save</button>
                             </form>
+                            @if(auth()->user()->hasPermission('workshop_manage'))
                             <form action="{{ route('workshop.custom.destroy', $co) }}" method="POST" class="inline" onsubmit="return confirm('Delete custom order {{ $co->order_no }}?');">
                                 @csrf
                                 @method('DELETE')
                                 <button class="text-rose-600 hover:underline px-1 py-1">Delete</button>
                             </form>
+                            @endif
                         </div>
                     </div>
                 @endforeach
@@ -169,11 +173,13 @@
                                 </select>
                                 <button class="bg-slate-800 text-white px-2 py-1 rounded">Save</button>
                             </form>
+                            @if(auth()->user()->hasPermission('workshop_manage'))
                             <form action="{{ route('workshop.repair.destroy', $rj) }}" method="POST" class="inline" onsubmit="return confirm('Delete repair job {{ $rj->job_no }}?');">
                                 @csrf
                                 @method('DELETE')
                                 <button class="text-rose-600 hover:underline px-1 py-1">Delete</button>
                             </form>
+                            @endif
                         </div>
                     </div>
                 @endforeach

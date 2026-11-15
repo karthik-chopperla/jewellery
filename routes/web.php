@@ -58,9 +58,11 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
         Route::post('/pos/checkout', [PosController::class, 'store'])->name('pos.store');
         Route::get('/invoices', [PosController::class, 'invoices'])->name('pos.invoices');
         Route::get('/invoices/{invoice}', [PosController::class, 'showInvoice'])->name('pos.invoice');
+        Route::post('/sales-returns', [PosController::class, 'storeReturn'])->name('pos.returns.store');
+    });
+    Route::middleware('permission:pos_manage')->group(function () {
         Route::delete('/invoices/{invoice}', [PosController::class, 'destroyInvoice'])->name('pos.invoices.destroy');
         Route::post('/invoices/{invoice}/cancel', [PosController::class, 'cancelInvoice'])->name('pos.cancel');
-        Route::post('/sales-returns', [PosController::class, 'storeReturn'])->name('pos.returns.store');
         Route::delete('/sales-returns/{salesReturn}', [PosController::class, 'destroyReturn'])->name('pos.returns.destroy');
     });
 
@@ -101,16 +103,18 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
     Route::middleware('permission:manufacturing')->group(function () {
         Route::post('/manufacturing', [WorkshopController::class, 'storeManufacturing'])->name('workshop.mfg.store');
         Route::post('/manufacturing/{order}/stage', [WorkshopController::class, 'updateManufacturingStage'])->name('workshop.mfg.stage');
-        Route::delete('/manufacturing/{order}', [WorkshopController::class, 'destroyManufacturing'])->name('workshop.mfg.destroy');
     });
     Route::middleware('permission:custom_orders')->group(function () {
         Route::post('/custom-orders', [WorkshopController::class, 'storeCustomOrder'])->name('workshop.custom.store');
         Route::post('/custom-orders/{order}/status', [WorkshopController::class, 'updateCustomOrderStatus'])->name('workshop.custom.status');
-        Route::delete('/custom-orders/{order}', [WorkshopController::class, 'destroyCustomOrder'])->name('workshop.custom.destroy');
     });
     Route::middleware('permission:repairs')->group(function () {
         Route::post('/repairs', [WorkshopController::class, 'storeRepair'])->name('workshop.repair.store');
         Route::post('/repairs/{repairJob}/status', [WorkshopController::class, 'updateRepairStatus'])->name('workshop.repair.status');
+    });
+    Route::middleware('permission:workshop_manage')->group(function () {
+        Route::delete('/manufacturing/{order}', [WorkshopController::class, 'destroyManufacturing'])->name('workshop.mfg.destroy');
+        Route::delete('/custom-orders/{order}', [WorkshopController::class, 'destroyCustomOrder'])->name('workshop.custom.destroy');
         Route::delete('/repairs/{repairJob}', [WorkshopController::class, 'destroyRepair'])->name('workshop.repair.destroy');
     });
 

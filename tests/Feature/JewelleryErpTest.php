@@ -318,7 +318,11 @@ class JewelleryErpTest extends TestCase
 
         $artisan = User::where('role', 'artisan')->firstOrFail();
         $this->actingAs($artisan);
-        $this->get('/workshop')->assertOk()->assertDontSee('href="'.route('dashboard').'"');
+        $this->get('/workshop')
+            ->assertOk()
+            ->assertDontSee('href="'.route('dashboard').'"')
+            ->assertDontSee('Delete manufacturing order')
+            ->assertDontSee('Delete repair job');
         $this->get('/')->assertForbidden();
         $this->post('/custom-orders', [])->assertForbidden();
     }
@@ -329,6 +333,35 @@ class JewelleryErpTest extends TestCase
             'email' => 'ananya@jewelerp.in',
             'password' => 'password',
         ])->assertRedirect(route('pos.index'));
+    }
+
+    public function test_destructive_pos_and_workshop_actions_are_admin_only(): void
+    {
+        $invoice = \App\Models\Invoice::firstOrFail();
+        $return = \App\Models\SalesReturn::create([
+            'return_no' => 'RET-ROLE-TEST',
+            'invoice_id' => $invoice->id,
+            'branch_id' => $invoice->branch_id,
+            'return_type' => 'refund',
+            'reason' => 'Permission test',
+        ]);
+
+        $manager = User::where('role', 'manager')->firstOrFail();
+        $this->actingAs($manager);
+        $this->get('/pos')->assertOk();
+        $this->get('/invoices')->assertOk()->assertDontSee('Cancel')->assertDontSee('Delete invoice');
+        $this->post(route('pos.cancel', $invoice))->assertForbidden();
+        $this->delete(route('pos.invoices.destroy', $invoice))->assertForbidden();
+        $this->delete(route('pos.returns.destroy', $return))->assertForbidden();
+
+        $salesperson = User::where('role', 'salesperson')->firstOrFail();
+        $this->actingAs($salesperson);
+        $this->delete(route('workshop.custom.destroy', \App\Models\CustomOrder::firstOrFail()))->assertForbidden();
+
+        $artisan = User::where('role', 'artisan')->firstOrFail();
+        $this->actingAs($artisan);
+        $this->delete(route('workshop.mfg.destroy', \App\Models\ManufacturingOrder::firstOrFail()))->assertForbidden();
+        $this->delete(route('workshop.repair.destroy', \App\Models\RepairJob::firstOrFail()))->assertForbidden();
     }
 
     public function test_delete_operations_across_all_modules(): void
