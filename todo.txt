@@ -1,0 +1,456 @@
+Using jewellry db under xampp and latest laravel create the below project 
+
+Complete Jewellery Shop Management Software – Modules
+1. Dashboard & Business Analytics
+- Total sales today.
+- Gold, silver and diamond sales.
+- Total purchase value.
+- Current stock valuation.
+- Total gold weight in inventory.
+- Total silver weight in inventory.
+- Available diamond inventory.
+- Today's customer visits.
+- Pending orders.
+- Pending repairs.
+- Old gold exchange transactions.
+- Outstanding customer payments.
+- Supplier outstanding payments.
+- Daily profit estimates.
+- Branch-wise sales.
+- Staff-wise sales.
+- Sales and purchase charts.
+- Metal price movement dashboard.
+2. Product & Jewellery Master
+Core module
+- Add jewellery products.
+- Product name and description.
+- Product SKU.
+- Product category.
+- Product subcategory.
+- Product type: Ring, Necklace, Chain, Bracelet, Earrings, Bangles, Pendant, Coins, etc.
+- Metal type: Gold, Silver, Platinum.
+- Purity: 24K, 22K, 20K, 18K, 14K, 9K.
+- Karat configuration.
+- Gross weight.
+- Net metal weight.
+- Stone weight.
+- Diamond weight.
+- Making charge configuration.
+- Wastage percentage.
+- Product images.
+- Product barcode.
+- HUID details.
+- Hallmark details.
+- Supplier information.
+- Product status.
+- Product-wise stock availability.
+3. Inventory & Stock Management
+- Jewellery stock registration.
+- Unique item identification.
+- Barcode and QR code generation.
+- Product-wise inventory.
+- Purity-wise inventory.
+- Metal-wise inventory.
+- Weight-based stock management.
+- Branch-wise stock.
+- Counter-wise stock.
+- Stock transfer between branches.
+- Stock transfer between counters.
+- Stock adjustment.
+- Stock verification.
+- Damaged jewellery tracking.
+- Lost item tracking.
+- Reserved stock.
+- Sold stock.
+- Reorder alerts for consumables.
+- Stock valuation.
+- Physical stock reconciliation.
+- Inventory movement history.
+- Stock audit reports.
+Important: Every individual jewellery piece should have a unique inventory ID and barcode, not just a generic product SKU. Two identical rings can have different weights, stones, HUIDs and purchase costs.
+4. Gold, Silver & Metal Rate Management
+- Daily gold rate entry.
+- 24K gold rate.
+- 22K gold rate.
+- 20K gold rate.
+- 18K gold rate.
+- Silver rate.
+- Platinum rate.
+- Diamond pricing configuration.
+- Branch-wise metal rates.
+- Rate update history.
+- Rate effective date and time.
+- Manual rate update.
+- Admin approval for rate changes.
+- Automatic rate calculation based on purity.
+- Rate locking for customer orders.
+- Historical rate reports.
+5. Jewellery Billing & POS
+Essential demonstration module
+- Fast jewellery POS.
+- Barcode scanning.
+- Product search.
+- Add multiple jewellery items.
+- Live metal price calculation.
+- Gross weight calculation.
+- Net weight calculation.
+- Stone weight deduction.
+- Purity-based gold value.
+- Making charges.
+- Wastage charges.
+- Stone charges.
+- Diamond charges.
+- Hallmarking charges.
+- Other service charges.
+- Discounts.
+- GST calculation.
+- CGST and SGST.
+- IGST.
+- Round-off.
+- Advance adjustment.
+- Old gold exchange adjustment.
+- Multiple payment methods.
+- Cash, UPI, card and bank transfer.
+- Partial payment.
+- Credit sales with permissions.
+- Invoice generation.
+- Thermal printer support.
+- A4 invoice printing.
+- Sales return.
+- Exchange and refund.
+- Cancelled invoice tracking.
+6. Advanced Jewellery Price Calculation Engine
+This should be a dedicated calculation module because jewellery billing is different from ordinary retail billing.
+
+Example calculation:
+Component	Example
+Net gold weight	10 grams
+22K gold rate	₹10,000/gram
+Gold value	₹1,00,000
+Making charges	₹10,000
+Stone charges	₹5,000
+Subtotal	₹1,15,000
+GST at 3% (illustrative)	₹3,450
+Final amount	₹1,18,450
+
+Support:
+- Fixed making charge per gram.
+- Percentage-based making charge.
+- Fixed making charge per item.
+- Wastage percentage.
+- Wastage weight.
+- Different calculation methods by product category.
+- Stone and diamond pricing.
+- Custom deductions.
+- Multiple tax configurations.
+- Configurable rounding rules.
+Actual tax treatment should be configurable and verified against applicable Indian GST rules.
+7. Customer Management (CRM)
+- Customer registration.
+- Customer ID.
+- Name and contact details.
+- Address.
+- Date of birth.
+- Anniversary.
+- PAN details where required.
+- Customer purchase history.
+- Customer preferences.
+- Jewellery wishlist.
+- Previous exchange history.
+- Customer lifetime value.
+- Outstanding balance.
+- Customer credit limit.
+- Loyalty points.
+- Customer groups.
+- VIP customer management.
+- Customer feedback.
+- Birthday and anniversary reminders.
+- WhatsApp communication history.
+8. Gold Exchange & Old Jewellery Purchase
+High-value module
+- Old gold purchase registration.
+- Customer identification.
+- Gold purity testing details.
+- Gross weight.
+- Stone weight.
+- Net gold weight.
+- Tested purity.
+- Calculated fine gold weight.
+- Current gold rate.
+- Deduction percentage.
+- Melting loss configuration.
+- Exchange valuation.
+- Old gold purchase receipt.
+- Customer consent and declaration.
+- Exchange against new jewellery.
+- Cash purchase workflow, subject to applicable rules.
+- Manager approval.
+- Old gold inventory.
+- Refinery transfer records.
+- Transaction history.
+- Exchange reports.
+9. Purchase & Supplier Management
+- Supplier registration.
+- Supplier contact details.
+- GSTIN.
+- Supplier category.
+- Gold supplier.
+- Silver supplier.
+- Diamond supplier.
+- Jewellery manufacturer.
+- Purchase order.
+- Purchase invoice.
+- Metal weight entry.
+- Purity details.
+- Stone details.
+- Making charges.
+- Supplier credit terms.
+- Advance payment.
+- Supplier payment.
+- Purchase returns.
+- Supplier ledger.
+- Outstanding balance.
+- Supplier performance reports.
+10. Jewellery Manufacturing & Job Work
+- Manufacturing order.
+- Design selection.
+- Metal issue to artisan.
+- Gold and silver weight issued.
+- Artisan assignment.
+- Job work tracking.
+- Production stages.
+- Stone setting.
+- Polishing.
+- Finishing.
+- Quality inspection.
+- Expected completion date.
+- Actual weight after production.
+- Wastage tracking.
+- Metal loss tracking.
+- Labour charges.
+- Artisan payment.
+- Finished jewellery receipt.
+- Production history.
+11. Customer Orders & Custom Jewellery
+- Custom jewellery order.
+- Customer design requirements.
+- Reference images.
+- Sketch uploads.
+- Metal selection.
+- Purity selection.
+- Weight estimation.
+- Stone selection.
+- Design approval.
+- Advance payment.
+- Production assignment.
+- Order status.
+- Expected delivery.
+- Final billing.
+- Customer approval.
+- Order cancellation.
+- Delivery confirmation.
+12. Gold Savings & Jewellery Purchase Schemes
+- Customer scheme registration.
+- Monthly instalments.
+- Scheme duration.
+- Monthly contribution.
+- Payment collection.
+- Instalment history.
+- Missed instalment alerts.
+- Maturity date.
+- Bonus calculation.
+- Scheme redemption.
+- Jewellery purchase adjustment.
+- Scheme cancellation.
+- Refund management.
+- Scheme ledger.
+- Scheme-wise reports.
+13. Diamond & Precious Stone Management
+- Diamond inventory.
+- Diamond shape.
+- Cut.
+- Colour.
+- Clarity.
+- Carat weight.
+- Certification details.
+- Certificate number.
+- Diamond supplier.
+- Stone identification.
+- Precious gemstone management.
+- Ruby, emerald, sapphire and other stones.
+- Stone pricing.
+- Stone setting charges.
+- Stone movement tracking.
+- Certification document uploads.
+14. Barcode, Label & Tag Management
+- Unique barcode generation.
+- QR code generation.
+- Jewellery tag printing.
+- Product name.
+- SKU.
+- Metal type.
+- Purity.
+- Gross weight.
+- Net weight.
+- HUID.
+- Price display configuration.
+- Barcode scanner support.
+- Label printer support.
+- Bulk label printing.
+- Reprint history.
+15. Hallmarking & HUID Management
+- BIS hallmark details.
+- HUID registration.
+- HUID linked to individual item.
+- Purity details.
+- Hallmarking centre information.
+- Hallmarking dispatch.
+- Hallmarking receipt.
+- Hallmarking charges.
+- Verification records.
+- Hallmark document storage.
+- Item-wise hallmark history.
+16. Repair & Jewellery Service Management
+- Customer repair requests.
+- Repair job number.
+- Jewellery identification.
+- Before-repair photographs.
+- Repair description.
+- Weight at receiving.
+- Assigned artisan.
+- Repair charges.
+- Expected delivery date.
+- Repair status.
+- Quality check.
+- Customer approval.
+- Delivery confirmation.
+- Repair payment.
+- Repair history.
+17. Sales Return, Exchange & Refund
+- Sales return registration.
+- Original invoice reference.
+- Product condition.
+- Return weight.
+- Purity verification.
+- Return valuation.
+- Exchange against another product.
+- Additional payment collection.
+- Refund processing.
+- Manager approval.
+- Return reason.
+- Inventory adjustment.
+- Return history.
+18. Loyalty & Membership Management
+- Customer membership.
+- Loyalty points.
+- Purchase-based rewards.
+- Membership tiers.
+- Gold customer category.
+- Silver customer category.
+- VIP customer category.
+- Reward redemption.
+- Referral programme.
+- Customer offers.
+- Loyalty transaction history.
+19. Accounts & Finance
+- Daily cashbook.
+- Bankbook.
+- Sales ledger.
+- Purchase ledger.
+- Customer ledger.
+- Supplier ledger.
+- Expense management.
+- Income management.
+- Payment vouchers.
+- Receipt vouchers.
+- Journal entries.
+- Bank reconciliation.
+- Outstanding receivables.
+- Outstanding payables.
+- GST reports.
+- Profit and loss.
+- Balance sheet.
+- Trial balance.
+- Branch-wise financial reports.
+- Financial year closing.
+20. Staff & Employee Management
+- Employee registration.
+- Staff roles.
+- Salesperson assignment.
+- Cashier management.
+- Manager management.
+- Artisan management.
+- Attendance.
+- Shift management.
+- Leave management.
+- Salary management.
+- Sales commission.
+- Employee targets.
+- Employee performance.
+- Staff-wise sales reports.
+- Role-based permissions.
+21. Multi-Branch Management
+- Multiple showroom registration.
+- Branch-specific stock.
+- Branch-specific metal rates.
+- Branch-specific users.
+- Branch-wise POS.
+- Inter-branch stock transfer.
+- Stock transfer approval.
+- Centralised inventory.
+- Branch-wise sales reports.
+- Branch-wise profit reports.
+- Central management dashboard.
+- Consolidated accounts.
+- Branch performance comparison.
+22. Security, Approvals & Audit Logs
+- Role-based permissions.
+- Multi-factor authentication.
+- Cashier permissions.
+- Manager approval workflows.
+- Discount approval.
+- Rate change approval.
+- Stock adjustment approval.
+- Sales cancellation approval.
+- Old gold purchase approval.
+- Refund approval.
+- Login history.
+- User activity logs.
+- Invoice modification history.
+- Data backup.
+- Sensitive customer information protection.
+23. Reports & Business Intelligence
+- Daily sales report.
+- Monthly sales report.
+- Gold sales report.
+- Silver sales report.
+- Diamond sales report.
+- Purity-wise sales.
+- Weight-wise stock report.
+- Stock valuation.
+- Making charge revenue.
+- Old gold exchange report.
+- Customer purchase report.
+- Supplier purchase report.
+- Artisan job work report.
+- Pending custom orders.
+- Repair pending report.
+- GST reports.
+- Branch comparison.
+- Staff performance.
+- Profitability reports.
+24. Marketing & Customer Engagement
+- WhatsApp notifications.
+- SMS notifications.
+- Email campaigns.
+- Festival offers.
+- Akshaya Tritiya campaigns.
+- Dhanteras campaigns.
+- Diwali campaigns.
+- Birthday offers.
+- Anniversary offers.
+- Customer segmentation.
+- New collection announcements.
+- Customer feedback.
+- Review requests.
+- Loyalty campaigns.

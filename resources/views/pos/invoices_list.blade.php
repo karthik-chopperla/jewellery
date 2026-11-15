@@ -1,0 +1,120 @@
+@extends('layouts.app')
+
+@section('header', 'Invoices, Sales Returns & Exchanges')
+
+@section('content')
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-semibold text-slate-800">All Invoices</h2>
+            <form method="GET" class="flex gap-2">
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Invoice #..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs">
+                <button class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs">Search</button>
+            </form>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="text-xs text-slate-500 uppercase bg-slate-50">
+                    <tr>
+                        <th class="px-3 py-2 text-left">Invoice #</th>
+                        <th class="px-3 py-2 text-left">Date</th>
+                        <th class="px-3 py-2 text-left">Customer</th>
+                        <th class="px-3 py-2 text-right">Total</th>
+                        <th class="px-3 py-2 text-center">Status</th>
+                        <th class="px-3 py-2 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @foreach($invoices as $inv)
+                        <tr>
+                            <td class="px-3 py-2 font-medium"><a href="{{ route('pos.invoice', $inv) }}" class="text-amber-700 hover:underline">{{ $inv->invoice_no }}</a></td>
+                            <td class="px-3 py-2 text-xs text-slate-500">{{ $inv->billed_at->format('d M Y') }}</td>
+                            <td class="px-3 py-2">{{ $inv->customer->name ?? 'Walk-in' }}</td>
+                            <td class="px-3 py-2 text-right font-semibold">₹{{ number_format($inv->grand_total, 2) }}</td>
+                            <td class="px-3 py-2 text-center">
+                                <span class="px-2 py-0.5 text-xs rounded-full {{ $inv->status === 'paid' ? 'bg-emerald-100 text-emerald-700' : ($inv->status === 'cancelled' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700') }}">{{ ucfirst($inv->status) }}</span>
+                            </td>
+                            <td class="px-3 py-2 text-right space-x-2">
+                                <a href="{{ route('pos.invoice', $inv) }}" class="text-xs text-slate-600 hover:underline">Print</a>
+                                @if($inv->status !== 'cancelled')
+                                    <form action="{{ route('pos.cancel', $inv) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button class="text-xs text-rose-600 hover:underline">Cancel</button>
+                                    </form>
+                                @endif
+                                <form action="{{ route('pos.invoices.destroy', $inv) }}" method="POST" class="inline" onsubmit="return confirm('Delete invoice {{ $inv->invoice_no }}? This will restore stock.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="text-xs text-rose-700 font-medium hover:underline">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4">{{ $invoices->links() }}</div>
+    </div>
+
+    <div class="space-y-6">
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+            <h2 class="text-base font-semibold text-slate-800 mb-3">Register Sales Return / Exchange</h2>
+            <form action="{{ route('pos.returns.store') }}" method="POST" class="space-y-3 text-sm">
+                @csrf
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Original Invoice</label>
+                    <select name="invoice_id" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                        @foreach($invoices as $inv)
+                            <option value="{{ $inv->id }}">{{ $inv->invoice_no }} — ₹{{ number_format($inv->grand_total, 0) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <select name="return_type" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                        <option value="refund">Refund</option>
+                        <option value="exchange">Exchange</option>
+                        <option value="return">Return</option>
+                    </select>
+                    <input type="text" name="condition" value="Good / Intact" required class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs" placeholder="Condition">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" step="0.001" name="return_weight" required placeholder="Return Wt (g)" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                    <input type="text" name="tested_purity" value="22K" placeholder="Purity" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" step="0.01" name="return_value" required placeholder="Return Value ₹" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                    <input type="number" step="0.01" name="refund_amount" required placeholder="Refund ₹" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                </div>
+                <input type="text" name="reason" required placeholder="Return reason..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                <button class="w-full bg-slate-900 text-white py-2 rounded-lg text-xs font-semibold">Submit Return</button>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-800 mb-3">Recent Returns</h3>
+            <div class="space-y-2 text-xs">
+                @forelse($returns as $ret)
+                    <div class="border-b border-slate-100 pb-2 flex justify-between items-center">
+                        <div>
+                            <div class="font-semibold">{{ $ret->return_no }} ({{ $ret->return_type }})</div>
+                            <div class="text-slate-500">{{ $ret->invoice->invoice_no ?? '' }} · {{ $ret->reason }}</div>
+                        </div>
+                        <div class="text-right flex items-center gap-2">
+                            <span class="font-semibold">₹{{ number_format($ret->refund_amount, 0) }}</span>
+                            <form action="{{ route('pos.returns.destroy', $ret) }}" method="POST" class="inline" onsubmit="return confirm('Delete return record {{ $ret->return_no }}?');">
+                                @csrf
+                                @method('DELETE')
+                                <button class="text-[11px] text-rose-600 hover:underline">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                @empty
+                    <div class="text-slate-400">No returns recorded.</div>
+                @endforelse
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+
