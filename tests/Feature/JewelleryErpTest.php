@@ -75,6 +75,14 @@ class JewelleryErpTest extends TestCase
         $this->assertTrue(Hash::check('updated-demo-password', $admin->password));
     }
 
+    public function test_login_page_uses_abharan_erp_brand(): void
+    {
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('Abharan ERP')
+            ->assertDontSee('JewelERP');
+    }
+
     public function test_all_modules_load_for_authenticated_admin(): void
     {
         $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();

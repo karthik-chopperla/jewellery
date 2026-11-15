@@ -1,4 +1,4 @@
-# JewelERP — Complete Jewellery & Bullion Management ERP
+# Abharan ERP — Complete Jewellery & Bullion Management ERP
 
 <p align="center">
   <img src="https://img.shields.io/badge/Laravel-13.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 13" />
@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/Chart.js-4.x-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white" alt="Chart.js" />
 </p>
 
-**JewelERP** is an enterprise-grade Jewellery Showroom & Chain Management System crafted specifically for the Indian jewellery retail ecosystem. It provides end-to-end management spanning live bullion rates, item-level BIS HUID tracking, specialized jewellery POS with dynamic wastage & making charges, old gold exchange valuation, karigar (artisan) job-work manufacturing, 11+1 gold savings schemes, multi-branch operations, and GST accounting.
+**Abharan ERP** is an enterprise-grade Jewellery Showroom & Chain Management System crafted specifically for the Indian jewellery retail ecosystem. It provides end-to-end management spanning live bullion rates, item-level BIS HUID tracking, specialized jewellery POS with dynamic wastage & making charges, old gold exchange valuation, karigar (artisan) job-work manufacturing, 11+1 gold savings schemes, multi-branch operations, and GST accounting.
 
 ---
 

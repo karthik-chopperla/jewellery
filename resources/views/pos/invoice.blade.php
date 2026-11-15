@@ -88,7 +88,7 @@
         </div>
 
         <div class="mt-6 pt-3 border-t border-slate-200 text-center text-[11px] text-slate-500">
-            Thank you for shopping with {{ $businessName ?? 'JewelERP' }}. BIS 100% Hallmarked Jewellery.
+            Thank you for shopping with {{ $businessName ?? 'Abharan ERP' }}. BIS 100% Hallmarked Jewellery.
         </div>
     </div>
 </div>

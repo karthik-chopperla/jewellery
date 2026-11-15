@@ -17,17 +17,22 @@ class DemoAdminSeeder extends Seeder
             throw new RuntimeException('Set DEMO_ADMIN_PASSWORD to a password at least 12 characters long.');
         }
 
-        $branch = Branch::query()->where('is_head_office', true)->first()
-            ?? Branch::firstOrCreate(
+        $branch = Branch::query()->where('is_head_office', true)->first();
+
+        if (! $branch) {
+            $branch = Branch::firstOrCreate(
                 ['code' => 'DEMO'],
-                ['name' => 'JewelERP Demo Showroom', 'is_head_office' => true],
+                ['name' => 'Abharan ERP Demo Showroom', 'is_head_office' => true],
             );
+        } elseif ($branch->name === 'JewelERP Demo Showroom') {
+            $branch->update(['name' => 'Abharan ERP Demo Showroom']);
+        }
 
         User::updateOrCreate(
             ['email' => 'admin@jewelerp.in'],
             [
                 'branch_id' => $branch->id,
-                'name' => 'JewelERP Demo Admin',
+                'name' => 'Abharan ERP Demo Admin',
                 'password' => $password,
                 'role' => 'admin',
                 'is_active' => true,
