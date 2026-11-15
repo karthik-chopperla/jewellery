@@ -140,7 +140,7 @@ DB_PASSWORD=<supabase-database-password>
 DB_SSLMODE=require
 ```
 
-Get the PostgreSQL connection values from Supabase's **Connect** panel. After deployment, run `php artisan migrate --force` against the Supabase database. Render's free service may sleep when idle, and this demo Docker image uses Laravel's built-in server; it is not intended for production.
+Get the PostgreSQL connection values from Supabase's **Connect** panel. The container applies pending migrations at startup, so configure the Render environment variables before deploying. Render's free service may sleep when idle, and this demo Docker image uses Laravel's built-in server; it is not intended for production.
 
 ---
 
