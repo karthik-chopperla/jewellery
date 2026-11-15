@@ -7,7 +7,9 @@ use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Models\User;
 use App\Services\JewelleryPriceCalculator;
+use Database\Seeders\DemoAdminSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class JewelleryErpTest extends TestCase
@@ -56,6 +58,21 @@ class JewelleryErpTest extends TestCase
         $this->assertEquals(10.0, $res['net_weight']);
         $this->assertEquals(9.16, $res['fine_gold_weight']);
         $this->assertGreaterThan(70000, $res['valuation_amount']);
+    }
+
+    public function test_demo_admin_seeder_creates_and_updates_the_configured_password(): void
+    {
+        config(['demo.admin_password' => 'first-demo-password']);
+        $this->seed(DemoAdminSeeder::class);
+
+        config(['demo.admin_password' => 'updated-demo-password']);
+        $this->seed(DemoAdminSeeder::class);
+
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+
+        $this->assertSame(1, User::where('email', 'admin@jewelerp.in')->count());
+        $this->assertSame('admin', $admin->role);
+        $this->assertTrue(Hash::check('updated-demo-password', $admin->password));
     }
 
     public function test_all_modules_load_for_authenticated_admin(): void

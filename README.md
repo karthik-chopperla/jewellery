@@ -138,15 +138,16 @@ DB_DATABASE=postgres
 DB_USERNAME=<supabase-username>
 DB_PASSWORD=<supabase-database-password>
 DB_SSLMODE=require
+DEMO_ADMIN_PASSWORD=<unique-password-at-least-12-characters>
 ```
 
-Get the PostgreSQL connection values from Supabase's **Connect** panel. The container applies pending migrations at startup, so configure the Render environment variables before deploying. Render's free service may sleep when idle, and this demo Docker image uses Laravel's built-in server; it is not intended for production.
+Get the PostgreSQL connection values from Supabase's **Connect** panel. Set `DEMO_ADMIN_PASSWORD` in Render's Environment settings to a unique password of at least 12 characters; do not commit it. The container applies pending migrations and creates or updates the demo admin account at startup when this variable is set. Sign in with `admin@jewelerp.in` and the password you configured. Without the variable, no demo admin account is created. Render's free service may sleep when idle, and this demo Docker image uses Laravel's built-in server; it is not intended for production.
 
 ---
 
-## 👥 Demo Staff Credentials
+## 👥 Local Seeded Demo Accounts
 
-All demo accounts use the default password: `password`
+The following accounts are created by `php artisan migrate --seed` for local development. Render's demo admin credentials are configured separately using `DEMO_ADMIN_PASSWORD` above.
 
 | Role | Email | Password | Primary Access |
 | :--- | :--- | :--- | :--- |
