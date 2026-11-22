@@ -61,6 +61,7 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
         Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
         Route::post('/pos/calculate', [PosController::class, 'calculatePreview'])->name('pos.calculate');
         Route::post('/pos/checkout', [PosController::class, 'store'])->name('pos.store');
+        Route::post('/pos/customers/quick-create', [PosController::class, 'quickStoreCustomer'])->name('pos.customers.quick-store');
         Route::get('/invoices', [PosController::class, 'invoices'])->name('pos.invoices');
         Route::get('/invoices/{invoice}', [PosController::class, 'showInvoice'])->name('pos.invoice');
         Route::get('/invoices/{invoice}/pdf', [PosController::class, 'invoicePdf'])->name('pos.invoice.pdf');

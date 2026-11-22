@@ -84,6 +84,21 @@ class JewelleryErpTest extends TestCase
         $this->assertEquals(0.00, $result['igst_amount']);
     }
 
+    public function test_empty_manual_wastage_weight_uses_configured_wastage_percentage(): void
+    {
+        $item = (new JewelleryPriceCalculator())->calculateItem([
+            'gross_weight' => 2,
+            'metal_rate' => 1000,
+            'making_charge_type' => 'fixed',
+            'making_charge_rate' => 0,
+            'wastage_pct' => 10,
+            'wastage_weight' => '',
+        ]);
+
+        $this->assertEquals(0.2, $item['wastage_weight']);
+        $this->assertEquals(200, $item['wastage_value']);
+    }
+
     public function test_pos_price_preview_rejects_negative_item_discounts(): void
     {
         $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
@@ -187,6 +202,10 @@ class JewelleryErpTest extends TestCase
             'customer_id' => $customer->id,
             'invoice_type' => 'sale',
             'gst_type' => 'intra',
+            'bill_date' => now()->toDateString(),
+            'customer_state' => 'Maharashtra',
+            'order_reference' => 'ORDER-TEST-01',
+            'other_adjusted' => 25,
             'payment_method' => 'upi',
             'paid_amount' => 100000,
             'items' => [[
@@ -213,6 +232,159 @@ class JewelleryErpTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionDoesntHaveErrors();
         $this->assertEquals('sold', $item->fresh()->status);
+        $invoice = \App\Models\Invoice::latest('id')->firstOrFail();
+        $this->assertSame('Maharashtra', $invoice->customer_state);
+        $this->assertSame('ORDER-TEST-01', $invoice->order_reference);
+        $this->assertEquals(25, (float) $invoice->other_adjusted);
+    }
+
+    public function test_pos_checkout_persists_multiple_items_server_rates_gst_adjustments_and_split_payments(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin);
+
+        $branch = Branch::firstOrFail();
+        $stockItems = InventoryItem::with('product.category')
+            ->where('branch_id', $branch->id)
+            ->where('status', 'available')
+            ->take(2)
+            ->get();
+        $this->assertCount(2, $stockItems);
+
+        $items = $stockItems->map(fn (InventoryItem $item) => [
+            'inventory_item_id' => $item->id,
+            'product_name' => $item->product->name,
+            'metal_type' => $item->product->metal_type,
+            'purity' => $item->purity,
+            'gross_weight' => $item->gross_weight,
+            'stone_weight' => $item->stone_weight,
+            'net_weight' => $item->net_weight,
+            'metal_rate' => 1,
+            'making_charge_type' => $item->product->making_charge_type,
+            'making_charge_rate' => $item->product->making_charge_value,
+            'wastage_pct' => $item->product->wastage_pct,
+            'stone_charge' => $item->stone_charge,
+            'diamond_charge' => $item->diamond_charge,
+            'hallmark_charge' => $item->hallmark_charge,
+            'other_charge' => $item->other_charge,
+            'discount' => 10,
+            'gst_rate' => $item->product->gst_rate,
+            'sku' => $item->product->sku,
+            'barcode' => $item->barcode,
+            'huid' => $item->huid,
+            'hsn_code' => $item->product->hsn_code,
+        ])->all();
+
+        $this->post(route('pos.store'), [
+            'branch_id' => $branch->id,
+            'customer_id' => Customer::firstOrFail()->id,
+            'invoice_type' => 'sale',
+            'gst_type' => 'inter',
+            'discount_amount' => 20,
+            'advance_adjusted' => 50,
+            'scheme_adjusted' => 25,
+            'other_adjusted' => 10,
+            'old_gold' => [
+                'item_description' => 'Old gold test chain',
+                'metal_type' => 'Gold',
+                'purity' => '22K',
+                'purity_pct' => 91.67,
+                'gross_weight' => 0.1,
+                'stone_weight' => 0,
+                'other_deductions' => 0,
+                'deduction_pct' => 0,
+                'melting_loss_pct' => 0,
+                'acknowledgement' => '1',
+            ],
+            'payments' => [
+                ['method' => 'cash', 'amount' => 1000],
+                ['method' => 'upi', 'amount' => 2500, 'reference_no' => 'POS-UPI-TEST'],
+            ],
+            'items' => $items,
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        $invoice = \App\Models\Invoice::latest('id')->firstOrFail();
+        $invoice->load('items', 'payments', 'oldGoldPurchases');
+        $this->assertCount(2, $invoice->items);
+        $this->assertCount(2, $invoice->payments);
+        $this->assertCount(1, $invoice->oldGoldPurchases);
+        $this->assertGreaterThan(1, (float) $invoice->items->first()->metal_rate);
+        $this->assertGreaterThan(0, (float) $invoice->igst_amount);
+        $this->assertEquals(0, (float) $invoice->cgst_amount);
+        $this->assertEquals(0, (float) $invoice->sgst_amount);
+        $this->assertEquals(3500, (float) $invoice->amount_received);
+        $this->assertEquals(50, (float) $invoice->advance_adjusted);
+        $this->assertEquals(25, (float) $invoice->scheme_adjusted);
+        $this->assertEquals(10, (float) $invoice->other_adjusted);
+        $this->assertGreaterThan(0, (float) $invoice->old_gold_deduction);
+        $this->assertEqualsWithDelta(
+            (float) $invoice->items->sum('gst_amount'),
+            (float) $invoice->igst_amount,
+            0.01
+        );
+        $this->assertEquals('sold', $stockItems[0]->fresh()->status);
+        $this->assertEquals('sold', $stockItems[1]->fresh()->status);
+    }
+
+    public function test_pos_quick_customer_creation_returns_the_customer_for_inline_selection(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin)
+            ->postJson(route('pos.customers.quick-store'), [
+                'name' => 'POS Walk-in Test',
+                'phone' => '9000012345',
+                'address' => 'Test billing address',
+                'gstin' => '27AAACT1234A1Z5',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('name', 'POS Walk-in Test')
+            ->assertJsonPath('phone', '9000012345');
+
+        $this->assertDatabaseHas('customers', [
+            'name' => 'POS Walk-in Test',
+            'phone' => '9000012345',
+            'gstin' => '27AAACT1234A1Z5',
+        ]);
+    }
+
+    public function test_pos_exposes_structured_jewellery_entry_adjustment_and_payment_sections(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin)
+            ->get(route('pos.index'))
+            ->assertOk()
+            ->assertSee('Bill Header')
+            ->assertSee('Sale Items')
+            ->assertSee('Customer Adjustments')
+            ->assertSee('Payment Details')
+            ->assertSee('Gross metal value')
+            ->assertSee('Save and Print')
+            ->assertSee('Generate Invoice')
+            ->assertSee('name="gst_type"', false);
+    }
+
+    public function test_pos_preview_uses_server_calculator_for_adjustments_and_tax_totals(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin)
+            ->postJson(route('pos.calculate'), [
+                'branch_id' => Branch::firstOrFail()->id,
+                'gst_type' => 'intra',
+                'rounding_mode' => 'none',
+                'other_adjusted' => 10,
+                'items' => [[
+                    'gross_weight' => 1,
+                    'metal_rate' => 1000,
+                    'making_charge_type' => 'fixed',
+                    'making_charge_rate' => 0,
+                    'gst_rate' => 3,
+                ]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('other_adjusted', 10)
+            ->assertJsonPath('cgst_amount', 15)
+            ->assertJsonPath('sgst_amount', 15)
+            ->assertJsonPath('grand_total', 1020);
     }
 
     public function test_guests_cannot_access_any_protected_module(): void

@@ -56,6 +56,12 @@
                 <div><span class="text-slate-500">Customer:</span> <span class="font-bold">{{ $invoice->customer_name_snapshot ?? $invoice->customer->name ?? 'Walk-in Customer' }}</span></div>
                 <div><span class="text-slate-500">Phone:</span> {{ $invoice->customer_phone_snapshot ?? $invoice->customer->phone ?? '-' }}</div>
                 <div><span class="text-slate-500">GSTIN:</span> {{ $invoice->customer_gstin ?? $invoice->customer->gstin ?? '-' }}</div>
+                @if($invoice->customer_state)
+                    <div><span class="text-slate-500">State:</span> {{ $invoice->customer_state }}</div>
+                @endif
+                @if($invoice->order_reference)
+                    <div><span class="text-slate-500">Order reference:</span> {{ $invoice->order_reference }}</div>
+                @endif
                 @if($invoice->customer_address ?? $invoice->customer?->address)
                     <div><span class="text-slate-500">Address:</span> {{ $invoice->customer_address ?? $invoice->customer->address }}</div>
                 @endif
@@ -128,6 +134,9 @@
             @if($invoice->scheme_adjusted > 0)
                 <div class="flex justify-between"><span>Scheme Adjusted:</span><span>- ₹{{ number_format($invoice->scheme_adjusted, 2) }}</span></div>
             @endif
+            @if($invoice->other_adjusted > 0)
+                <div class="flex justify-between"><span>Other Adjustment:</span><span>- ₹{{ number_format($invoice->other_adjusted, 2) }}</span></div>
+            @endif
             <div class="flex justify-between text-base font-bold border-t border-slate-300 pt-1.5">
                 <span>Grand Total:</span><span>₹{{ number_format($invoice->grand_total, 2) }}</span>
             </div>
@@ -192,4 +201,10 @@
     @endif
 </div>
 @endsection
+
+@if(session('print_invoice'))
+    @push('scripts')
+        <script>window.addEventListener('load', () => window.print());</script>
+    @endpush
+@endif
 

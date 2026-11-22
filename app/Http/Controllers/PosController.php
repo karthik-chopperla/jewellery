@@ -24,6 +24,7 @@ use App\Services\InvoiceItemPricingService;
 use App\Services\InvoiceItemWriter;
 use App\Services\JewelleryPriceCalculator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -45,6 +46,7 @@ class PosController extends Controller
                 $rate = MetalRate::latestRate($metal, $item->purity, $item->branch_id);
                 return [
                     'id' => $item->id,
+                    'branch_id' => $item->branch_id,
                     'item_code' => $item->item_code,
                     'sku' => $item->product->sku ?? $item->item_code,
                     'barcode' => $item->barcode ?? '',
@@ -96,6 +98,7 @@ class PosController extends Controller
     public function calculatePreview(Request $request, JewelleryPriceCalculator $calculator)
     {
         $validated = $request->validate([
+            'branch_id' => 'nullable|exists:branches,id',
             'items' => 'required|array|min:1|max:100',
             'items.*.quantity' => 'nullable|integer|min:1|max:1000',
             'items.*.gross_weight' => 'required|numeric|min:0|max:100000',
@@ -118,9 +121,24 @@ class PosController extends Controller
             'rounding_mode' => 'nullable|in:nearest_rupee,nearest_5,nearest_10,none',
             'advance_adjusted' => 'nullable|numeric|min:0',
             'scheme_adjusted' => 'nullable|numeric|min:0',
+            'other_adjusted' => 'nullable|numeric|min:0',
+            'old_gold' => 'nullable|array',
+            'old_gold.metal_type' => 'required_with:old_gold|in:Gold,Silver,Platinum',
+            'old_gold.item_description' => 'required_with:old_gold|string|max:255',
+            'old_gold.purity' => 'required_with:old_gold|string|max:20',
+            'old_gold.purity_pct' => 'required_with:old_gold|numeric|min:0.01|max:100',
+            'old_gold.gross_weight' => 'required_with:old_gold|numeric|min:0|max:100000',
+            'old_gold.stone_weight' => 'nullable|numeric|min:0|max:100000',
+            'old_gold.other_deductions' => 'nullable|numeric|min:0|max:100000',
+            'old_gold.deduction_pct' => 'nullable|numeric|min:0|max:50',
+            'old_gold.melting_loss_pct' => 'nullable|numeric|min:0|max:25',
         ]);
         try {
-            return response()->json($calculator->calculateInvoice($validated['items'], $validated));
+            $branchId = (int) ($validated['branch_id'] ?? Auth::user()->branch_id ?? Branch::firstOrFail()->id);
+            $oldGold = $this->prepareOldGold($validated['old_gold'] ?? null, $branchId, $calculator);
+            return response()->json($calculator->calculateInvoice($validated['items'], array_merge($validated, [
+                'old_gold_deduction' => $oldGold['valuation_amount'] ?? 0,
+            ])));
         } catch (\InvalidArgumentException $exception) {
             throw ValidationException::withMessages(['items' => $exception->getMessage()]);
         }
@@ -140,12 +158,17 @@ class PosController extends Controller
             'customer_phone' => 'nullable|string|max:30',
             'customer_gstin' => ['nullable', 'string', 'max:15'],
             'customer_address' => 'nullable|string|max:2000',
+            'customer_state' => 'nullable|string|max:100',
+            'order_reference' => 'nullable|string|max:100',
             'salesperson_id' => 'nullable|exists:users,id',
             'invoice_type' => 'required|in:sale,credit,estimate',
+            'submit_action' => 'nullable|in:save,save_print,generate',
             'gst_type' => 'required|in:intra,inter',
+            'bill_date' => 'nullable|date',
             'discount_amount' => 'nullable|numeric|min:0',
             'advance_adjusted' => 'nullable|numeric|min:0',
             'scheme_adjusted' => 'nullable|numeric|min:0',
+            'other_adjusted' => 'nullable|numeric|min:0',
             'items' => 'required|array|min:1|max:100',
             'items.*.inventory_item_id' => 'nullable|integer|exists:inventory_items,id',
             'items.*.category_id' => 'nullable|integer|exists:categories,id',
@@ -203,6 +226,7 @@ class PosController extends Controller
                 'old_gold_deduction' => $oldGold['valuation_amount'] ?? 0,
                 'advance_adjusted' => (float) ($validated['advance_adjusted'] ?? 0),
                 'scheme_adjusted' => (float) ($validated['scheme_adjusted'] ?? 0),
+                'other_adjusted' => (float) ($validated['other_adjusted'] ?? 0),
             ];
             try {
                 $calc = $calculator->calculateInvoice(array_column($pricedItems, 'calculation'), $options);
@@ -245,6 +269,8 @@ class PosController extends Controller
                 'customer_phone_snapshot' => $validated['customer_phone'] ?? $customer?->phone,
                 'customer_gstin' => $validated['customer_gstin'] ?? $customer?->gstin,
                 'customer_address' => $validated['customer_address'] ?? $customer?->address,
+                'customer_state' => $validated['customer_state'] ?? null,
+                'order_reference' => $validated['order_reference'] ?? null,
                 'salesperson_id' => $validated['salesperson_id'] ?? Auth::id(),
                 'cashier_id' => Auth::id(),
                 'invoice_type' => $invoiceType,
@@ -260,6 +286,7 @@ class PosController extends Controller
                 'old_gold_deduction' => $calc['old_gold_deduction'],
                 'advance_adjusted' => $calc['advance_adjusted'],
                 'scheme_adjusted' => $calc['scheme_adjusted'],
+                'other_adjusted' => $calc['other_adjusted'],
                 'grand_total' => $grandTotal,
                 'paid_amount' => $paidAmount,
                 'balance_due' => $balanceDue,
@@ -267,7 +294,9 @@ class PosController extends Controller
                 'change_return' => $changeReturn,
                 'status' => $status,
                 'notes' => $validated['notes'] ?? null,
-                'billed_at' => now(),
+                'billed_at' => isset($validated['bill_date'])
+                    ? Carbon::parse($validated['bill_date'])->setTime(now()->hour, now()->minute, now()->second)
+                    : now(),
             ], $businessSnapshot));
 
             $itemWriter->create($invoice, $pricedItems, $calc['items'], $branchId, (int) Auth::id());
@@ -330,8 +359,30 @@ class PosController extends Controller
             AuditService::log('POS', 'create_invoice', "Generated invoice {$invoice->invoice_no} for ₹{$grandTotal}", $invoice);
 
             return redirect()->route('pos.invoice', ['invoice' => $invoice->id])
-                ->with('success', "Invoice {$invoice->invoice_no} generated successfully!");
+                ->with('success', "Invoice {$invoice->invoice_no} generated successfully!")
+                ->with('print_invoice', ($validated['submit_action'] ?? '') === 'save_print');
         });
+    }
+
+    public function quickStoreCustomer(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:30|unique:customers,phone',
+            'address' => 'nullable|string|max:2000',
+            'gstin' => 'nullable|string|max:15',
+        ]);
+        $data['customer_code'] = 'CUST-' . str_pad((string) ((Customer::max('id') ?? 0) + 1), 4, '0', STR_PAD_LEFT);
+        $customer = Customer::create($data);
+        AuditService::log('CRM', 'create', "Registered customer {$customer->name} from POS", $customer);
+
+        return response()->json([
+            'id' => $customer->id,
+            'name' => $customer->name,
+            'phone' => $customer->phone,
+            'address' => $customer->address,
+            'gstin' => $customer->gstin,
+        ], 201);
     }
 
     private function prepareOldGold(?array $input, int $branchId, JewelleryPriceCalculator $calculator): ?array

@@ -31,7 +31,10 @@ class JewelleryPriceCalculator
         $metalValue = round($netWeight * $metalRate * $quantity, 2);
 
         $wastagePct = max(0, (float) ($input['wastage_pct'] ?? 0));
-        $wastageWeight = max(0, (float) ($input['wastage_weight'] ?? ($netWeight * ($wastagePct / 100))));
+        $wastageWeightInput = $input['wastage_weight'] ?? null;
+        $wastageWeight = max(0, $wastageWeightInput === null || $wastageWeightInput === ''
+            ? $netWeight * ($wastagePct / 100)
+            : (float) $wastageWeightInput);
         $wastageValue = round($wastageWeight * $metalRate * $quantity, 2);
 
         $makingType = $input['making_charge_type'] ?? 'per_gram';
@@ -150,11 +153,12 @@ class JewelleryPriceCalculator
         $oldGoldDeduction = max(0, (float) ($options['old_gold_deduction'] ?? 0));
         $advanceAdjusted = max(0, (float) ($options['advance_adjusted'] ?? 0));
         $schemeAdjusted = max(0, (float) ($options['scheme_adjusted'] ?? 0));
+        $otherAdjusted = max(0, (float) ($options['other_adjusted'] ?? 0));
 
-        if ($oldGoldDeduction + $advanceAdjusted + $schemeAdjusted > $roundedTotal) {
+        if ($oldGoldDeduction + $advanceAdjusted + $schemeAdjusted + $otherAdjusted > $roundedTotal) {
             throw new \InvalidArgumentException('Adjustments cannot exceed the invoice total.');
         }
-        $grandTotal = round($roundedTotal - $oldGoldDeduction - $advanceAdjusted - $schemeAdjusted, 2);
+        $grandTotal = round($roundedTotal - $oldGoldDeduction - $advanceAdjusted - $schemeAdjusted - $otherAdjusted, 2);
 
         return [
             'items' => $calculatedItems,
@@ -169,6 +173,7 @@ class JewelleryPriceCalculator
             'old_gold_deduction' => round($oldGoldDeduction, 2),
             'advance_adjusted' => round($advanceAdjusted, 2),
             'scheme_adjusted' => round($schemeAdjusted, 2),
+            'other_adjusted' => round($otherAdjusted, 2),
             'grand_total' => $grandTotal,
         ];
     }

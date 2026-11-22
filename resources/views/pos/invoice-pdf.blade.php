@@ -67,7 +67,9 @@
                     <strong>Customer:</strong> {{ $customerName }}<br>
                     <strong>Mobile:</strong> {{ $customerPhone ?: '-' }}<br>
                     <strong>Address:</strong> {{ $customerAddress ?: '-' }}<br>
-                    <strong>Customer GSTIN:</strong> {{ $customerGstin ?: '-' }}
+                    <strong>Customer GSTIN:</strong> {{ $customerGstin ?: '-' }}<br>
+                    <strong>Customer state:</strong> {{ $invoice->customer_state ?: '-' }}<br>
+                    <strong>Order reference:</strong> {{ $invoice->order_reference ?: '-' }}
                 </td>
             </tr>
         </table>
@@ -135,6 +137,9 @@
             @endif
             @if($invoice->scheme_adjusted > 0)
                 <tr><td>Scheme adjustment</td><td class="right">- ₹{{ number_format($invoice->scheme_adjusted, 2) }}</td></tr>
+            @endif
+            @if($invoice->other_adjusted > 0)
+                <tr><td>Other adjustment</td><td class="right">- ₹{{ number_format($invoice->other_adjusted, 2) }}</td></tr>
             @endif
             <tr><td>Round-off</td><td class="right">₹{{ number_format($invoice->round_off, 2) }}</td></tr>
             <tr class="total"><td>Grand total</td><td class="right">₹{{ number_format($invoice->grand_total, 2) }}</td></tr>
