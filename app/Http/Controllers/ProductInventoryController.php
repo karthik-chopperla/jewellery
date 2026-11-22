@@ -50,6 +50,7 @@ class ProductInventoryController extends Controller
             'making_charge_value' => 'required|numeric|min:0',
             'wastage_pct' => 'nullable|numeric|min:0',
             'gst_rate' => 'nullable|numeric|min:0',
+            'hsn_code' => 'nullable|string|max:20',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'description' => 'nullable|string',
         ]);
@@ -64,7 +65,8 @@ class ProductInventoryController extends Controller
             'making_charge_type' => $data['making_charge_type'],
             'making_charge_value' => (float) $data['making_charge_value'],
             'wastage_pct' => (float) ($data['wastage_pct'] ?? 0),
-            'gst_rate' => (float) ($data['gst_rate'] ?? 3.0),
+            'gst_rate' => (float) ($data['gst_rate'] ?? Category::findOrFail($data['category_id'])->gst_rate),
+            'hsn_code' => $data['hsn_code'] ?? null,
             'supplier_id' => $data['supplier_id'] ?? null,
             'description' => $data['description'] ?? null,
             'status' => 'active',

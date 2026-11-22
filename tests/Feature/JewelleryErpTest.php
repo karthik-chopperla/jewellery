@@ -43,6 +43,64 @@ class JewelleryErpTest extends TestCase
         $this->assertEquals(118450.00, $res['grand_total']);
     }
 
+    public function test_price_engine_calculates_quantity_deductions_and_allocates_invoice_discount_by_tax_rate(): void
+    {
+        $calc = new JewelleryPriceCalculator();
+        $result = $calc->calculateInvoice([
+            [
+                'quantity' => 3,
+                'gross_weight' => 2,
+                'stone_weight' => 0.1,
+                'other_deductions' => 0.1,
+                'metal_rate' => 1000,
+                'wastage_pct' => 10,
+                'making_charge_type' => 'per_gram',
+                'making_charge_rate' => 100,
+                'stone_charge' => 20,
+                'discount' => 10,
+                'gst_rate' => 3,
+            ],
+            [
+                'quantity' => 1,
+                'gross_weight' => 1,
+                'metal_rate' => 500,
+                'making_charge_type' => 'fixed',
+                'making_charge_rate' => 0,
+                'gst_rate' => 5,
+            ],
+        ], [
+            'discount_amount' => 150,
+            'gst_type' => 'intra',
+            'rounding_mode' => 'none',
+        ]);
+
+        $this->assertSame(3, $result['items'][0]['quantity']);
+        $this->assertEquals(1.8, $result['items'][0]['net_weight']);
+        $this->assertEquals(6370.70, $result['items'][0]['taxable_value']);
+        $this->assertEquals(0.18, $result['items'][0]['wastage_weight']);
+        $this->assertEquals(191.12, $result['items'][0]['gst_amount']);
+        $this->assertEquals(7010.00, $result['subtotal']);
+        $this->assertEquals(215.59, $result['cgst_amount'] + $result['sgst_amount']);
+        $this->assertEquals(0.00, $result['igst_amount']);
+    }
+
+    public function test_pos_price_preview_rejects_negative_item_discounts(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin)
+            ->postJson(route('pos.calculate'), [
+                'gst_type' => 'intra',
+                'items' => [[
+                    'gross_weight' => 1,
+                    'making_charge_type' => 'fixed',
+                    'making_charge_rate' => 0,
+                    'discount' => -1,
+                ]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('items.0.discount');
+    }
+
     public function test_old_gold_valuation_calculator(): void
     {
         $calc = new JewelleryPriceCalculator();
@@ -153,6 +211,7 @@ class JewelleryErpTest extends TestCase
         ]);
 
         $response->assertRedirect();
+        $response->assertSessionDoesntHaveErrors();
         $this->assertEquals('sold', $item->fresh()->status);
     }
 

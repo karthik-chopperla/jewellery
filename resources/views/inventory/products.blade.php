@@ -28,6 +28,10 @@
                     <option>22K</option><option>24K</option><option>20K</option><option>18K</option><option>14K</option><option>999</option><option>950</option>
                 </select>
             </div>
+            <div class="grid grid-cols-2 gap-2">
+                <input type="text" name="hsn_code" maxlength="20" placeholder="HSN code" class="border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                <input type="number" step="0.01" min="0" name="gst_rate" placeholder="GST % (category default)" class="border border-slate-300 rounded-lg px-3 py-2 text-xs">
+            </div>
             <div class="grid grid-cols-3 gap-2">
                 <select name="making_charge_type" class="border border-slate-300 rounded-lg px-2 py-2 text-xs">
                     <option value="per_gram">₹/Gram</option>
@@ -63,6 +67,7 @@
                         <th class="px-3 py-2 text-left">SKU</th>
                         <th class="px-3 py-2 text-left">Product</th>
                         <th class="px-3 py-2 text-left">Metal / Purity</th>
+                        <th class="px-3 py-2 text-left">HSN / GST</th>
                         <th class="px-3 py-2 text-left">Making Charge</th>
                         <th class="px-3 py-2 text-center">In Stock</th>
                         <th class="px-3 py-2 text-right">Action</th>
@@ -77,6 +82,7 @@
                                 <div class="text-xs text-slate-400">{{ $p->category->name ?? '' }} · {{ $p->product_type }}</div>
                             </td>
                             <td class="px-3 py-2 text-xs">{{ $p->metal_type }} <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">{{ $p->purity }}</span></td>
+                            <td class="px-3 py-2 text-xs">{{ $p->hsn_code ?? '—' }} · {{ number_format($p->gst_rate, 2) }}%</td>
                             <td class="px-3 py-2 text-xs">{{ $p->making_charge_value }} ({{ $p->making_charge_type }}) · W: {{ $p->wastage_pct }}%</td>
                             <td class="px-3 py-2 text-center font-bold {{ $p->available_count > 0 ? 'text-emerald-700' : 'text-rose-600' }}">{{ $p->available_count }}</td>
                             <td class="px-3 py-2 text-right whitespace-nowrap">

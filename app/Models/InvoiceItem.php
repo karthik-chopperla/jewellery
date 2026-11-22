@@ -17,5 +17,10 @@ class InvoiceItem extends Model
     {
         return $this->belongsTo(InventoryItem::class);
     }
+
+    public function salesReturns()
+    {
+        return $this->hasMany(SalesReturn::class);
+    }
 }
 

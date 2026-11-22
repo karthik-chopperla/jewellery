@@ -43,6 +43,11 @@ class Invoice extends Model
         return $this->hasMany(InvoicePayment::class);
     }
 
+    public function oldGoldPurchases()
+    {
+        return $this->hasMany(OldGoldPurchase::class);
+    }
+
     public function modifications()
     {
         return $this->hasMany(InvoiceModification::class);

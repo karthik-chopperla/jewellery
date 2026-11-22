@@ -7,8 +7,16 @@
     <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-base font-semibold text-slate-800">All Invoices</h2>
-            <form method="GET" class="flex gap-2">
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Invoice #..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs">
+            <form method="GET" class="flex flex-wrap gap-2">
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Invoice, customer or mobile" class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs">
+                <input type="date" name="from" value="{{ request('from') }}" class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs" aria-label="From date">
+                <input type="date" name="to" value="{{ request('to') }}" class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs" aria-label="To date">
+                <select name="status" class="border border-slate-300 rounded-lg px-2 py-1.5 text-xs">
+                    <option value="">All statuses</option>
+                    @foreach(['paid', 'partial', 'credit', 'estimate', 'returned', 'cancelled'] as $status)
+                        <option value="{{ $status }}" @selected(request('status') === $status)>{{ $status === 'cancelled' ? 'Voided' : ucfirst($status) }}</option>
+                    @endforeach
+                </select>
                 <button class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs">Search</button>
             </form>
         </div>
@@ -65,30 +73,34 @@
             <form action="{{ route('pos.returns.store') }}" method="POST" class="space-y-3 text-sm">
                 @csrf
                 <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1">Original Invoice</label>
-                    <select name="invoice_id" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">
-                        @foreach($invoices as $inv)
-                            <option value="{{ $inv->id }}">{{ $inv->invoice_no }} — ₹{{ number_format($inv->grand_total, 0) }}</option>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Invoice item to return</label>
+                    <select name="invoice_item_id" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                        <option value="">Select an invoice item</option>
+                        @foreach($returnableItems as $item)
+                            @if($item->returnable_quantity > 0)
+                                <option value="{{ $item->id }}">{{ $item->invoice->invoice_no }} — {{ $item->product_name }} ({{ $item->returnable_quantity }} remaining)</option>
+                            @endif
                         @endforeach
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <select name="return_type" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                    <select name="return_type" required class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
                         <option value="refund">Refund</option>
                         <option value="exchange">Exchange</option>
                         <option value="return">Return</option>
                     </select>
-                    <input type="text" name="condition" value="Good / Intact" required class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs" placeholder="Condition">
+                    <input type="text" name="condition" value="Good / Intact" required maxlength="30" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs" placeholder="Condition">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="number" step="0.001" name="return_weight" required placeholder="Return Wt (g)" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
-                    <input type="text" name="tested_purity" value="22K" placeholder="Purity" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                    <input type="number" name="quantity" min="1" step="1" value="1" required placeholder="Quantity" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                    <select name="refund_method" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                        <option value="">Refund method (if refund)</option>
+                        <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option>
+                    </select>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="number" step="0.01" name="return_value" required placeholder="Return Value ₹" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
-                    <input type="number" step="0.01" name="refund_amount" required placeholder="Refund ₹" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
-                </div>
-                <input type="text" name="reason" required placeholder="Return reason..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                <input type="number" step="0.01" min="0" name="refund_amount" placeholder="Refund amount (blank = full returned value)" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                <input type="text" name="reason" required maxlength="255" placeholder="Return reason..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                <p class="text-[11px] text-slate-500">Return value is calculated from the original invoice item. Manager approval may be required.</p>
                 <button class="w-full bg-slate-900 text-white py-2 rounded-lg text-xs font-semibold">Submit Return</button>
             </form>
         </div>
@@ -101,9 +113,16 @@
                         <div>
                             <div class="font-semibold">{{ $ret->return_no }} ({{ $ret->return_type }})</div>
                             <div class="text-slate-500">{{ $ret->invoice->invoice_no ?? '' }} · {{ $ret->reason }}</div>
+                            <div class="text-slate-500">{{ $ret->credit_note_no }} · {{ ucfirst($ret->status) }}</div>
                         </div>
                         <div class="text-right flex items-center gap-2">
                             <span class="font-semibold">₹{{ number_format($ret->refund_amount, 0) }}</span>
+                            @if($ret->status === 'pending_approval' && auth()->user()->hasPermission('pos_manage'))
+                                <form action="{{ route('pos.returns.approve', $ret) }}" method="POST" class="inline">
+                                    @csrf
+                                    <button class="text-[11px] text-emerald-700 hover:underline">Approve</button>
+                                </form>
+                            @endif
                             @if(auth()->user()->hasPermission('pos_manage'))
                             <form action="{{ route('pos.returns.destroy', $ret) }}" method="POST" class="inline" onsubmit="return confirm('Delete return record {{ $ret->return_no }}?');">
                                 @csrf

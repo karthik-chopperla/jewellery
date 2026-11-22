@@ -21,34 +21,33 @@ class JewelleryPriceCalculator
      */
     public function calculateItem(array $input): array
     {
+        $quantity = max(1, (int) ($input['quantity'] ?? 1));
         $grossWeight = max(0, (float) ($input['gross_weight'] ?? 0));
         $stoneWeight = max(0, (float) ($input['stone_weight'] ?? 0));
-        $netWeight = isset($input['net_weight']) && (float) $input['net_weight'] > 0
-            ? (float) $input['net_weight']
-            : max(0, $grossWeight - $stoneWeight);
+        $otherDeductions = max(0, (float) ($input['other_deductions'] ?? 0));
+        $netWeight = max(0, $grossWeight - $stoneWeight - $otherDeductions);
 
         $metalRate = max(0, (float) ($input['metal_rate'] ?? 0));
-        $metalValue = round($netWeight * $metalRate, 2);
+        $metalValue = round($netWeight * $metalRate * $quantity, 2);
 
         $wastagePct = max(0, (float) ($input['wastage_pct'] ?? 0));
-        $wastageWeight = isset($input['wastage_weight']) && (float) $input['wastage_weight'] > 0
-            ? (float) $input['wastage_weight']
-            : round($netWeight * ($wastagePct / 100), 3);
-        $wastageValue = round($wastageWeight * $metalRate, 2);
+        $wastageWeight = max(0, (float) ($input['wastage_weight'] ?? ($netWeight * ($wastagePct / 100))));
+        $wastageValue = round($wastageWeight * $metalRate * $quantity, 2);
 
         $makingType = $input['making_charge_type'] ?? 'per_gram';
         $makingRate = max(0, (float) ($input['making_charge_rate'] ?? 0));
         $makingAmount = match ($makingType) {
             'percentage' => round($metalValue * ($makingRate / 100), 2),
-            'fixed'      => round($makingRate, 2),
-            default      => round($netWeight * $makingRate, 2), // per_gram
+            'fixed'      => round($makingRate * $quantity, 2),
+            'per_gram'   => round($netWeight * $makingRate * $quantity, 2),
+            default      => throw new \InvalidArgumentException('Unsupported making charge type.'),
         };
 
-        $stoneCharge = max(0, (float) ($input['stone_charge'] ?? 0));
-        $diamondCharge = max(0, (float) ($input['diamond_charge'] ?? 0));
-        $hallmarkCharge = max(0, (float) ($input['hallmark_charge'] ?? 0));
-        $otherCharge = max(0, (float) ($input['other_charge'] ?? 0));
-        $discount = max(0, (float) ($input['discount'] ?? 0));
+        $stoneCharge = max(0, (float) ($input['stone_charge'] ?? 0)) * $quantity;
+        $diamondCharge = max(0, (float) ($input['diamond_charge'] ?? 0)) * $quantity;
+        $hallmarkCharge = max(0, (float) ($input['hallmark_charge'] ?? 0)) * $quantity;
+        $otherCharge = max(0, (float) ($input['other_charge'] ?? 0)) * $quantity;
+        $discount = max(0, (float) ($input['discount'] ?? 0)) * $quantity;
 
         $subtotalBeforeDiscount = $metalValue + $wastageValue + $makingAmount + $stoneCharge + $diamondCharge + $hallmarkCharge + $otherCharge;
         $taxableValue = max(0, round($subtotalBeforeDiscount - $discount, 2));
@@ -60,7 +59,11 @@ class JewelleryPriceCalculator
         return [
             'gross_weight' => round($grossWeight, 3),
             'stone_weight' => round($stoneWeight, 3),
+            'other_deductions' => round($otherDeductions, 3),
             'net_weight' => round($netWeight, 3),
+            'quantity' => $quantity,
+            'total_gross_weight' => round($grossWeight * $quantity, 3),
+            'total_net_weight' => round($netWeight * $quantity, 3),
             'metal_rate' => round($metalRate, 2),
             'metal_value' => $metalValue,
             'wastage_pct' => $wastagePct,
@@ -101,12 +104,32 @@ class JewelleryPriceCalculator
         }
 
         $invoiceDiscount = max(0, (float) ($options['discount_amount'] ?? 0));
+        if ($invoiceDiscount > $subtotal) {
+            throw new \InvalidArgumentException('Invoice discount cannot exceed the taxable subtotal.');
+        }
         $netTaxable = max(0, $subtotal - $invoiceDiscount);
 
-        // Recompute GST proportionally if invoice-level discount applied
         if ($subtotal > 0 && $invoiceDiscount > 0) {
-            $ratio = $netTaxable / $subtotal;
-            $totalGst = round($totalGst * $ratio, 2);
+            $remainingDiscount = $invoiceDiscount;
+            $lastIndex = array_key_last($calculatedItems);
+            foreach ($calculatedItems as $index => &$item) {
+                $allocatedDiscount = $index === $lastIndex
+                    ? $remainingDiscount
+                    : round($invoiceDiscount * ($item['taxable_value'] / $subtotal), 2);
+                $allocatedDiscount = min($item['taxable_value'], $allocatedDiscount);
+                $remainingDiscount = round($remainingDiscount - $allocatedDiscount, 2);
+                $item['invoice_discount'] = $allocatedDiscount;
+                $item['taxable_value'] = round($item['taxable_value'] - $allocatedDiscount, 2);
+                $item['gst_amount'] = round($item['taxable_value'] * ($item['gst_rate'] / 100), 2);
+                $item['line_total'] = round($item['taxable_value'] + $item['gst_amount'], 2);
+            }
+            unset($item);
+            $totalGst = array_sum(array_column($calculatedItems, 'gst_amount'));
+        } else {
+            foreach ($calculatedItems as &$item) {
+                $item['invoice_discount'] = 0.0;
+            }
+            unset($item);
         }
 
         $gstType = $options['gst_type'] ?? 'intra';
@@ -128,7 +151,10 @@ class JewelleryPriceCalculator
         $advanceAdjusted = max(0, (float) ($options['advance_adjusted'] ?? 0));
         $schemeAdjusted = max(0, (float) ($options['scheme_adjusted'] ?? 0));
 
-        $grandTotal = max(0, round($roundedTotal - $oldGoldDeduction - $advanceAdjusted - $schemeAdjusted, 2));
+        if ($oldGoldDeduction + $advanceAdjusted + $schemeAdjusted > $roundedTotal) {
+            throw new \InvalidArgumentException('Adjustments cannot exceed the invoice total.');
+        }
+        $grandTotal = round($roundedTotal - $oldGoldDeduction - $advanceAdjusted - $schemeAdjusted, 2);
 
         return [
             'items' => $calculatedItems,

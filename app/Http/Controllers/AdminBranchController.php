@@ -171,6 +171,12 @@ class AdminBranchController extends Controller
 
     public function reports(Request $request)
     {
+        $gstFilters = $request->validate([
+            'gst_from' => 'nullable|date',
+            'gst_to' => 'nullable|date|after_or_equal:gst_from',
+        ]);
+        $gstFrom = $gstFilters['gst_from'] ?? now()->startOfMonth()->toDateString();
+        $gstTo = $gstFilters['gst_to'] ?? today()->toDateString();
         $dailySales = Invoice::where('status', '!=', 'cancelled')->whereDate('billed_at', today())->sum('grand_total');
         $monthlySales = Invoice::where('status', '!=', 'cancelled')->whereMonth('billed_at', now()->month)->sum('grand_total');
 
@@ -195,9 +201,43 @@ class AdminBranchController extends Controller
         $oldGoldTotal = OldGoldPurchase::sum('valuation_amount');
         $purchaseTotal = PurchaseInvoice::sum('total_amount');
 
+        $gstSales = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->whereNotIn('invoices.status', ['cancelled', 'estimate'])
+            ->whereBetween(DB::raw('DATE(invoices.billed_at)'), [$gstFrom, $gstTo])
+            ->selectRaw("COALESCE(invoice_items.hsn_code, 'Unspecified') as hsn_code, invoice_items.gst_rate, invoices.gst_type, SUM(invoice_items.taxable_value) as taxable_value, SUM(invoice_items.gst_amount) as gst_amount")
+            ->groupBy('invoice_items.hsn_code', 'invoice_items.gst_rate', 'invoices.gst_type')
+            ->get();
+
+        $gstCredits = DB::table('sales_returns')
+            ->join('invoice_items', 'invoice_items.id', '=', 'sales_returns.invoice_item_id')
+            ->join('invoices', 'invoices.id', '=', 'sales_returns.invoice_id')
+            ->where('sales_returns.status', 'approved')
+            ->whereBetween(DB::raw('DATE(sales_returns.created_at)'), [$gstFrom, $gstTo])
+            ->selectRaw("COALESCE(invoice_items.hsn_code, 'Unspecified') as hsn_code, invoice_items.gst_rate, invoices.gst_type, SUM(sales_returns.taxable_value) as taxable_value, SUM(sales_returns.cgst_amount + sales_returns.sgst_amount + sales_returns.igst_amount) as gst_amount")
+            ->groupBy('invoice_items.hsn_code', 'invoice_items.gst_rate', 'invoices.gst_type')
+            ->get();
+
+        $gstSummary = $gstSales->keyBy(fn ($row) => $row->hsn_code . '|' . $row->gst_rate . '|' . $row->gst_type);
+        foreach ($gstCredits as $credit) {
+            $key = $credit->hsn_code . '|' . $credit->gst_rate . '|' . $credit->gst_type;
+            $row = $gstSummary->get($key, (object) [
+                'hsn_code' => $credit->hsn_code,
+                'gst_rate' => $credit->gst_rate,
+                'gst_type' => $credit->gst_type,
+                'taxable_value' => 0,
+                'gst_amount' => 0,
+            ]);
+            $row->taxable_value -= (float) $credit->taxable_value;
+            $row->gst_amount -= (float) $credit->gst_amount;
+            $gstSummary->put($key, $row);
+        }
+        $gstSummary = $gstSummary->sortBy(['hsn_code', 'gst_rate'])->values();
+
         return view('admin.reports', compact(
             'dailySales', 'monthlySales', 'puritySales', 'metalStock',
-            'branchComparison', 'staffPerformance', 'oldGoldTotal', 'purchaseTotal'
+            'branchComparison', 'staffPerformance', 'oldGoldTotal', 'purchaseTotal',
+            'gstFrom', 'gstTo', 'gstSummary'
         ));
     }
 }

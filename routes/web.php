@@ -63,6 +63,7 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
     Route::middleware('permission:pos_manage')->group(function () {
         Route::delete('/invoices/{invoice}', [PosController::class, 'destroyInvoice'])->name('pos.invoices.destroy');
         Route::post('/invoices/{invoice}/cancel', [PosController::class, 'cancelInvoice'])->name('pos.cancel');
+        Route::post('/sales-returns/{salesReturn}/approve', [PosController::class, 'approveReturn'])->name('pos.returns.approve');
         Route::delete('/sales-returns/{salesReturn}', [PosController::class, 'destroyReturn'])->name('pos.returns.destroy');
     });
 
