@@ -48,6 +48,21 @@ class Invoice extends Model
         return $this->hasMany(OldGoldPurchase::class);
     }
 
+    public function shares()
+    {
+        return $this->hasMany(InvoiceShare::class);
+    }
+
+    public function exchangesAsOriginal()
+    {
+        return $this->hasMany(InvoiceExchange::class, 'original_invoice_id');
+    }
+
+    public function exchangeAsReplacement()
+    {
+        return $this->hasOne(InvoiceExchange::class, 'replacement_invoice_id');
+    }
+
     public function modifications()
     {
         return $this->hasMany(InvoiceModification::class);

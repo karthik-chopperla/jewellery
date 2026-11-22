@@ -78,7 +78,7 @@
                         <option value="">Select an invoice item</option>
                         @foreach($returnableItems as $item)
                             @if($item->returnable_quantity > 0)
-                                <option value="{{ $item->id }}">{{ $item->invoice->invoice_no }} — {{ $item->product_name }} ({{ $item->returnable_quantity }} remaining)</option>
+                                <option value="{{ $item->id }}" @selected(request('return_item') == $item->id)>{{ $item->invoice->invoice_no }} — {{ $item->product_name }} ({{ $item->returnable_quantity }} remaining)</option>
                             @endif
                         @endforeach
                     </select>
@@ -113,7 +113,11 @@
                         <div>
                             <div class="font-semibold">{{ $ret->return_no }} ({{ $ret->return_type }})</div>
                             <div class="text-slate-500">{{ $ret->invoice->invoice_no ?? '' }} · {{ $ret->reason }}</div>
-                            <div class="text-slate-500">{{ $ret->credit_note_no }} · {{ ucfirst($ret->status) }}</div>
+                            <div class="text-slate-500">{{ $ret->credit_note_no }} · {{ ucfirst($ret->status) }}
+                                @if($ret->credit_note_no)
+                                    · <a href="{{ route('pos.returns.credit-note', $ret) }}" target="_blank" rel="noopener noreferrer" class="text-amber-700 underline">Credit note</a>
+                                @endif
+                            </div>
                         </div>
                         <div class="text-right flex items-center gap-2">
                             <span class="font-semibold">₹{{ number_format($ret->refund_amount, 0) }}</span>

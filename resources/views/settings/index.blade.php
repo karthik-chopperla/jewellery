@@ -10,7 +10,7 @@
             <p class="text-xs text-slate-500 mt-0.5">Change your jewellery showroom name, branding, tax registration, and billing defaults.</p>
         </div>
 
-        <form action="{{ route('settings.update') }}" method="POST" class="space-y-4 text-xs">
+        <form action="{{ route('settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
             @csrf
 
             <!-- Business Name & Tagline -->
@@ -55,6 +55,21 @@
             <div>
                 <label class="block font-medium text-slate-600 mb-1">Showroom Address (Printed on Invoices)</label>
                 <textarea name="address" rows="2" placeholder="Street, Market, City, State..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">{{ old('address', $settings['address']) }}</textarea>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-medium text-slate-600 mb-1">Invoice Logo (PNG or JPEG, max 2 MB)</label>
+                    <input type="file" name="business_logo" accept="image/png,image/jpeg" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                    @if($settings['business_logo_path'])
+                        <img src="{{ asset('storage/'.$settings['business_logo_path']) }}" alt="Current invoice logo" class="mt-2 max-h-14">
+                    @endif
+                </div>
+                <label class="flex items-center gap-2 text-xs text-slate-700 sm:pt-6">
+                    <input type="hidden" name="invoice_shop_copy" value="0">
+                    <input type="checkbox" name="invoice_shop_copy" value="1" @checked($settings['invoice_shop_copy'])>
+                    Include a separate shop copy in generated invoice PDFs
+                </label>
             </div>
 
             <!-- Defaults & Configuration -->

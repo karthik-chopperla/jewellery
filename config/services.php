@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'graph_api_version' => env('WHATSAPP_GRAPH_API_VERSION', 'v23.0'),
+        'default_country_code' => env('WHATSAPP_DEFAULT_COUNTRY_CODE', '91'),
+        'link_expiry_hours' => (int) env('INVOICE_SHARE_EXPIRY_HOURS', 72),
+    ],
+
 ];

@@ -14,11 +14,14 @@ use App\Models\LoyaltyTransaction;
 use App\Models\MetalRate;
 use App\Models\OldGoldPurchase;
 use App\Models\SalesReturn;
-use App\Models\Setting;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\CurrencyAmountInWords;
+use App\Services\InvoiceSnapshot;
+use App\Services\InvoicePdfService;
+use App\Services\InvoiceItemPricingService;
+use App\Services\InvoiceItemWriter;
 use App\Services\JewelleryPriceCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -123,7 +126,12 @@ class PosController extends Controller
         }
     }
 
-    public function store(Request $request, JewelleryPriceCalculator $calculator)
+    public function store(
+        Request $request,
+        JewelleryPriceCalculator $calculator,
+        InvoiceItemPricingService $itemPricing,
+        InvoiceItemWriter $itemWriter
+    )
     {
         $validated = $request->validate([
             'branch_id' => 'required|exists:branches,id',
@@ -184,10 +192,10 @@ class PosController extends Controller
             'notes' => 'nullable|string|max:2000',
         ]);
 
-        return DB::transaction(function () use ($request, $validated, $calculator) {
+        return DB::transaction(function () use ($request, $validated, $calculator, $itemPricing, $itemWriter) {
             $branchId = (int) $validated['branch_id'];
             $invoiceType = $validated['invoice_type'];
-            $pricedItems = $this->prepareInvoiceItems($validated['items'], $branchId, $invoiceType);
+            $pricedItems = $itemPricing->prepare($validated['items'], $branchId, $invoiceType);
             $oldGold = $this->prepareOldGold($validated['old_gold'] ?? null, $branchId, $calculator);
             $options = [
                 'discount_amount' => (float) ($validated['discount_amount'] ?? 0),
@@ -227,8 +235,9 @@ class PosController extends Controller
             $changeReturn = round(max(0, $amountReceived - $grandTotal), 2);
             $status = $invoiceType === 'estimate' ? 'estimate' : ($balanceDue <= 0 ? 'paid' : ($paidAmount > 0 ? 'partial' : 'credit'));
             $customer = isset($validated['customer_id']) ? Customer::find($validated['customer_id']) : null;
+            $businessSnapshot = InvoiceSnapshot::forBranch(Branch::findOrFail($branchId));
 
-            $invoice = Invoice::create([
+            $invoice = Invoice::create(array_merge([
                 'invoice_no' => 'INV-' . now()->format('Y') . '-' . Str::upper((string) Str::ulid()),
                 'branch_id' => $branchId,
                 'customer_id' => $customer?->id,
@@ -259,66 +268,9 @@ class PosController extends Controller
                 'status' => $status,
                 'notes' => $validated['notes'] ?? null,
                 'billed_at' => now(),
-            ]);
+            ], $businessSnapshot));
 
-            foreach ($pricedItems as $idx => $preparedItem) {
-                $rawItem = $preparedItem['source'];
-                $ci = $calc['items'][$idx];
-                $invItemId = $rawItem['inventory_item_id'] ?? null;
-
-                InvoiceItem::create([
-                    'invoice_id' => $invoice->id,
-                    'inventory_item_id' => $invItemId,
-                    'product_name' => $rawItem['product_name'] ?? 'Jewellery Item',
-                    'metal_type' => $rawItem['metal_type'] ?? 'Gold',
-                    'purity' => $rawItem['purity'] ?? '22K',
-                    'quantity' => $ci['quantity'],
-                    'sku' => $rawItem['sku'] ?? null,
-                    'barcode' => $rawItem['barcode'] ?? null,
-                    'huid' => $rawItem['huid'] ?? null,
-                    'category_name' => $rawItem['category_name'] ?? null,
-                    'hsn_code' => $rawItem['hsn_code'] ?? null,
-                    'gross_weight' => $ci['gross_weight'],
-                    'stone_weight' => $ci['stone_weight'],
-                    'other_deductions' => $ci['other_deductions'],
-                    'net_weight' => $ci['net_weight'],
-                    'metal_rate' => $ci['metal_rate'],
-                    'metal_value' => $ci['metal_value'],
-                    'wastage_pct' => $ci['wastage_pct'],
-                    'wastage_weight' => $ci['wastage_weight'],
-                    'wastage_value' => $ci['wastage_value'],
-                    'making_charge_type' => $ci['making_charge_type'],
-                    'making_charge_rate' => $ci['making_charge_rate'],
-                    'making_charge_amount' => $ci['making_charge_amount'],
-                    'stone_charge' => $ci['stone_charge'],
-                    'diamond_charge' => $ci['diamond_charge'],
-                    'hallmark_charge' => $ci['hallmark_charge'],
-                    'other_charge' => $ci['other_charge'],
-                    'discount' => $ci['discount'],
-                    'invoice_discount' => $ci['invoice_discount'],
-                    'taxable_value' => $ci['taxable_value'],
-                    'gst_rate' => $ci['gst_rate'],
-                    'gst_amount' => $ci['gst_amount'],
-                    'line_total' => $ci['line_total'],
-                ]);
-
-                if ($invItemId && $invoiceType !== 'estimate') {
-                    $updated = InventoryItem::whereKey($invItemId)
-                        ->where('status', 'available')
-                        ->update(['status' => 'sold']);
-                    if ($updated !== 1) {
-                        throw ValidationException::withMessages(['items' => 'An item in this cart is no longer available. Refresh POS and try again.']);
-                    }
-                    StockMovement::create([
-                        'inventory_item_id' => $invItemId,
-                        'branch_id' => $branchId,
-                        'type' => 'sale',
-                        'reference' => $invoice->invoice_no,
-                        'notes' => "Sold via POS {$invoice->invoice_no}",
-                        'user_id' => Auth::id(),
-                    ]);
-                }
-            }
+            $itemWriter->create($invoice, $pricedItems, $calc['items'], $branchId, (int) Auth::id());
 
             foreach ($payments as $payment) {
                 InvoicePayment::create([
@@ -382,80 +334,6 @@ class PosController extends Controller
         });
     }
 
-    private function prepareInvoiceItems(array $items, int $branchId, string $invoiceType): array
-    {
-        return collect($items)->map(function (array $input) use ($branchId, $invoiceType) {
-            $inventoryItem = null;
-            $product = null;
-
-            if (! empty($input['inventory_item_id'])) {
-                $inventoryItem = InventoryItem::with('product.category')
-                    ->whereKey($input['inventory_item_id'])
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $inventoryItem || (int) $inventoryItem->branch_id !== $branchId
-                    || ($invoiceType !== 'estimate' && $inventoryItem->status !== 'available')) {
-                    throw ValidationException::withMessages(['items' => 'A selected item is unavailable at the chosen branch. Refresh POS and try again.']);
-                }
-                $product = $inventoryItem->product;
-                $metalType = $product->metal_type;
-                $purity = $inventoryItem->purity;
-                $rate = MetalRate::latestRate($metalType, $purity, $branchId);
-                if ($metalType !== 'Diamond' && $rate <= 0) {
-                    throw ValidationException::withMessages(['items' => "No approved {$metalType} rate is configured for {$purity}."]);
-                }
-
-                $source = [
-                    'inventory_item_id' => $inventoryItem->id,
-                    'product_name' => $product->name,
-                    'metal_type' => $metalType,
-                    'purity' => $purity,
-                    'quantity' => 1,
-                    'gross_weight' => (float) $inventoryItem->gross_weight,
-                    'stone_weight' => (float) $inventoryItem->stone_weight,
-                    'other_deductions' => 0,
-                    'metal_rate' => $rate,
-                    'making_charge_type' => $product->making_charge_type,
-                    'making_charge_rate' => (float) $product->making_charge_value,
-                    'wastage_pct' => (float) $product->wastage_pct,
-                    'stone_charge' => (float) $inventoryItem->stone_charge,
-                    'diamond_charge' => (float) $inventoryItem->diamond_charge,
-                    'hallmark_charge' => (float) $inventoryItem->hallmark_charge,
-                    'other_charge' => (float) $inventoryItem->other_charge,
-                    'discount' => (float) ($input['discount'] ?? 0),
-                    'gst_rate' => (float) ($product->gst_rate ?? $product->category->gst_rate),
-                    'sku' => $product->sku,
-                    'barcode' => $inventoryItem->barcode,
-                    'huid' => $inventoryItem->huid,
-                    'category_name' => $product->category->name,
-                    'hsn_code' => $product->hsn_code,
-                ];
-            } else {
-                $quantity = (int) ($input['quantity'] ?? 1);
-                $metalType = $input['metal_type'];
-                $purity = $input['purity'];
-                $rate = $metalType === 'Diamond' ? 0 : MetalRate::latestRate($metalType, $purity, $branchId);
-                if ($metalType !== 'Diamond' && $rate <= 0) {
-                    throw ValidationException::withMessages(['items' => "No approved {$metalType} rate is configured for {$purity}."]);
-                }
-                $category = ! empty($input['category_id']) ? Category::find($input['category_id']) : null;
-                $source = array_merge($input, [
-                    'quantity' => $quantity,
-                    'metal_rate' => $rate,
-                    'wastage_weight' => isset($input['wastage_weight']) && $input['wastage_weight'] !== ''
-                        ? (float) $input['wastage_weight']
-                        : null,
-                    'gst_rate' => (float) ($input['gst_rate'] ?? $category?->gst_rate ?? Setting::get('default_gst_rate', '3')),
-                    'category_name' => $category?->name ?? ($input['category_name'] ?? null),
-                    'hsn_code' => $category?->hsn_code ?? ($input['hsn_code'] ?? null),
-                ]);
-            }
-
-            return ['source' => $source, 'calculation' => $source];
-        })->all();
-    }
-
     private function prepareOldGold(?array $input, int $branchId, JewelleryPriceCalculator $calculator): ?array
     {
         if (! $input) {
@@ -494,10 +372,43 @@ class PosController extends Controller
 
     public function showInvoice(Invoice $invoice, Request $request)
     {
-        $invoice->load(['branch', 'customer', 'salesperson', 'cashier', 'items.inventoryItem', 'payments', 'oldGoldPurchases']);
+        $invoice->load([
+            'branch', 'customer', 'salesperson', 'cashier', 'items.inventoryItem', 'payments',
+            'oldGoldPurchases', 'shares' => fn ($query) => $query->latest()->take(10),
+            'exchangesAsOriginal.salesReturn', 'exchangesAsOriginal.replacementInvoice',
+            'exchangeAsReplacement.originalInvoice',
+        ]);
         $format = $request->get('format', 'a4');
         $amountInWords = CurrencyAmountInWords::inr((float) $invoice->grand_total);
         return view('pos.invoice', compact('invoice', 'format', 'amountInWords'));
+    }
+
+    public function invoicePdf(Request $request, Invoice $invoice, InvoicePdfService $pdfService)
+    {
+        $options = $request->validate([
+            'format' => 'nullable|in:a4,thermal',
+            'download' => 'nullable|boolean',
+        ]);
+        $format = $options['format'] ?? 'a4';
+        $filename = Str::slug($invoice->invoice_no) . '-' . $format . '.pdf';
+
+        return response($pdfService->render($invoice, $format), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline') . '; filename="' . $filename . '"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function creditNotePdf(Request $request, SalesReturn $salesReturn, InvoicePdfService $pdfService)
+    {
+        $options = $request->validate(['download' => 'nullable|boolean']);
+        $filename = Str::slug($salesReturn->credit_note_no ?: $salesReturn->return_no) . '.pdf';
+
+        return response($pdfService->renderCreditNote($salesReturn), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => (($options['download'] ?? false) ? 'attachment' : 'inline') . '; filename="' . $filename . '"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function invoices(Request $request)
@@ -507,6 +418,7 @@ class PosController extends Controller
             'status' => 'nullable|in:paid,partial,credit,estimate,cancelled,returned',
             'from' => 'nullable|date',
             'to' => 'nullable|date|after_or_equal:from',
+            'return_invoice' => 'nullable|exists:invoices,id',
         ]);
         $invoices = Invoice::with(['customer', 'branch', 'salesperson'])
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
@@ -528,6 +440,7 @@ class PosController extends Controller
         $returns = SalesReturn::with(['invoice', 'customer', 'branch'])->latest()->take(15)->get();
         $returnableItems = InvoiceItem::with('invoice')
             ->whereHas('invoice', fn ($query) => $query->whereNotIn('status', ['cancelled', 'estimate']))
+            ->when($filters['return_invoice'] ?? null, fn ($query, $invoiceId) => $query->where('invoice_id', $invoiceId))
             ->latest()
             ->take(300)
             ->get();
@@ -622,6 +535,8 @@ class PosController extends Controller
                 'return_type' => $data['return_type'],
                 'condition' => $data['condition'],
                 'return_weight' => round((float) $item->gross_weight * $data['quantity'], 3),
+                'metal_type' => $item->metal_type,
+                'stone_weight' => round((float) $item->stone_weight * $data['quantity'], 3),
                 'tested_purity' => $item->purity,
                 'quantity' => $data['quantity'],
                 'return_value' => $returnValue,

@@ -5,6 +5,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomerCrmController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\InvoiceExchangeController;
+use App\Http\Controllers\InvoiceShareController;
 use App\Http\Controllers\GoldSchemeController;
 use App\Http\Controllers\MetalRateController;
 use App\Http\Controllers\OldGoldController;
@@ -20,6 +22,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::get('/shared/invoices/{share}/pdf', [InvoiceShareController::class, 'access'])
+    ->middleware(['signed', 'throttle:30,1'])
+    ->name('invoices.shared-pdf');
 
 Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->middleware('permission:dashboard')->name('dashboard');
@@ -58,6 +63,10 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
         Route::post('/pos/checkout', [PosController::class, 'store'])->name('pos.store');
         Route::get('/invoices', [PosController::class, 'invoices'])->name('pos.invoices');
         Route::get('/invoices/{invoice}', [PosController::class, 'showInvoice'])->name('pos.invoice');
+        Route::get('/invoices/{invoice}/pdf', [PosController::class, 'invoicePdf'])->name('pos.invoice.pdf');
+        Route::post('/invoices/{invoice}/whatsapp', [InvoiceShareController::class, 'share'])->name('pos.invoice.whatsapp');
+        Route::get('/invoices/{invoice}/exchange', [InvoiceExchangeController::class, 'create'])->name('pos.invoice.exchange');
+        Route::get('/sales-returns/{salesReturn}/credit-note.pdf', [PosController::class, 'creditNotePdf'])->name('pos.returns.credit-note');
         Route::post('/sales-returns', [PosController::class, 'storeReturn'])->name('pos.returns.store');
     });
     Route::middleware('permission:pos_manage')->group(function () {
@@ -65,6 +74,8 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
         Route::post('/invoices/{invoice}/cancel', [PosController::class, 'cancelInvoice'])->name('pos.cancel');
         Route::post('/sales-returns/{salesReturn}/approve', [PosController::class, 'approveReturn'])->name('pos.returns.approve');
         Route::delete('/sales-returns/{salesReturn}', [PosController::class, 'destroyReturn'])->name('pos.returns.destroy');
+        Route::post('/invoice-shares/{share}/revoke', [InvoiceShareController::class, 'revoke'])->name('pos.invoice-shares.revoke');
+        Route::post('/invoices/{invoice}/exchange', [InvoiceExchangeController::class, 'store'])->name('pos.invoice.exchange.store');
     });
 
     // Modules 7, 18, 24: CRM, Loyalty, Marketing

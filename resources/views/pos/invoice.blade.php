@@ -23,13 +23,16 @@
             <a href="{{ route('pos.invoice', ['invoice' => $invoice, 'format' => 'thermal']) }}" class="px-3 py-1.5 rounded-lg text-xs font-medium {{ $format === 'thermal' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300' }}">80mm Thermal Receipt</a>
         </div>
         <div class="flex gap-2">
+            <a href="{{ route('pos.invoice.pdf', ['invoice' => $invoice, 'format' => $format]) }}" target="_blank" rel="noopener noreferrer" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Open PDF</a>
+            <a href="{{ route('pos.invoice.pdf', ['invoice' => $invoice, 'format' => $format, 'download' => 1]) }}" class="bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Download PDF</a>
             <button onclick="window.print()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg text-xs font-semibold">Print / Save PDF</button>
-            @if($invoice->customer_phone_snapshot ?? $invoice->customer?->phone)
-                @php
-                    $sharePhone = preg_replace('/\D+/', '', $invoice->customer_phone_snapshot ?? $invoice->customer?->phone);
-                    $shareText = "Invoice {$invoice->invoice_no} from {$businessName}. Payable: ₹" . number_format($invoice->grand_total, 2);
-                @endphp
-                <a href="https://wa.me/{{ $sharePhone }}?text={{ urlencode($shareText) }}" target="_blank" rel="noopener noreferrer" class="bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Share on WhatsApp</a>
+            <form action="{{ route('pos.invoice.whatsapp', $invoice) }}" method="POST">
+                @csrf
+                <button class="bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Share PDF on WhatsApp</button>
+            </form>
+            <a href="{{ route('pos.invoices', ['return_invoice' => $invoice->id]) }}" class="bg-white border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium">Register Return</a>
+            @if(auth()->user()->hasPermission('pos_manage'))
+                <a href="{{ route('pos.invoice.exchange', $invoice) }}" class="bg-amber-100 text-amber-900 px-3 py-1.5 rounded-lg text-xs font-semibold">Exchange Jewellery</a>
             @endif
             <a href="{{ route('pos.index') }}" class="bg-white border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium">← Back to POS</a>
         </div>
@@ -152,6 +155,41 @@
             Thank you for shopping with {{ $businessName ?? 'Abharan ERP' }}. BIS 100% Hallmarked Jewellery.
         </div>
     </div>
+
+    @if($invoice->shares->isNotEmpty())
+        <div class="bg-white border border-slate-200 rounded-xl p-4 text-xs">
+            <h3 class="font-semibold text-slate-800 mb-2">Invoice sharing history</h3>
+            <div class="space-y-2">
+                @foreach($invoice->shares as $share)
+                    <div class="flex items-center justify-between gap-3 border-t border-slate-100 pt-2">
+                        <span>{{ $share->phone_snapshot }} · {{ str_replace('_', ' ', ucfirst($share->status)) }} · {{ $share->created_at->format('d M Y, h:i A') }} · {{ $share->access_count }} PDF access(es)</span>
+                        @if($share->status !== 'revoked' && $share->expires_at->isFuture() && auth()->user()->hasPermission('pos_manage'))
+                            <form action="{{ route('pos.invoice-shares.revoke', $share) }}" method="POST">
+                                @csrf
+                                <button class="text-rose-700 hover:underline">Revoke link</button>
+                            </form>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    @if($invoice->exchangeAsReplacement || $invoice->exchangesAsOriginal->isNotEmpty())
+        <div class="bg-white border border-slate-200 rounded-xl p-4 text-xs">
+            <h3 class="font-semibold text-slate-800 mb-2">Exchange history</h3>
+            @if($invoice->exchangeAsReplacement)
+                <p>Replacement sale for <a class="text-amber-700 underline" href="{{ route('pos.invoice', $invoice->exchangeAsReplacement->originalInvoice) }}">{{ $invoice->exchangeAsReplacement->originalInvoice->invoice_no }}</a></p>
+            @endif
+            @foreach($invoice->exchangesAsOriginal as $exchange)
+                <p class="border-t border-slate-100 pt-2 mt-2">
+                    {{ $exchange->exchange_no }} · credit note <a class="text-amber-700 underline" href="{{ route('pos.returns.credit-note', $exchange->salesReturn) }}" target="_blank" rel="noopener noreferrer">{{ $exchange->salesReturn->credit_note_no }}</a> ·
+                    replacement <a class="text-amber-700 underline" href="{{ route('pos.invoice', $exchange->replacementInvoice) }}">{{ $exchange->replacementInvoice->invoice_no }}</a> ·
+                    credit ₹{{ number_format($exchange->credit_applied, 2) }} · refund ₹{{ number_format($exchange->refund_amount, 2) }}
+                </p>
+            @endforeach
+        </div>
+    @endif
 </div>
 @endsection
 

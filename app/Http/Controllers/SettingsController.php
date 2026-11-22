@@ -25,6 +25,8 @@ class SettingsController extends Controller
             'default_wastage_pct' => Setting::get('default_wastage_pct', '2.0'),
             'default_gst_rate' => Setting::get('default_gst_rate', '3.0'),
             'currency_symbol' => Setting::get('currency_symbol', '₹'),
+            'business_logo_path' => Setting::get('business_logo_path'),
+            'invoice_shop_copy' => Setting::get('invoice_shop_copy', '0') === '1',
         ];
 
         return view('settings.index', compact('settings'));
@@ -47,10 +49,18 @@ class SettingsController extends Controller
             'default_wastage_pct' => 'nullable|numeric|min:0',
             'default_gst_rate' => 'nullable|numeric|min:0',
             'currency_symbol' => 'nullable|string|max:10',
+            'invoice_shop_copy' => 'nullable|boolean',
+            'business_logo' => 'nullable|image|mimes:jpeg,png|max:2048',
         ]);
 
-        foreach ($data as $key => $value) {
+        $data['invoice_shop_copy'] = $data['invoice_shop_copy'] ?? false;
+        foreach (collect($data)->except('business_logo')->all() as $key => $value) {
             Setting::set($key, (string) ($value ?? ''));
+        }
+
+        if ($request->hasFile('business_logo')) {
+            $logoPath = $request->file('business_logo')->store('branding', 'public');
+            Setting::set('business_logo_path', $logoPath);
         }
 
         AuditService::log('Settings', 'update', "Updated showroom settings, Business Name: {$data['business_name']}");
