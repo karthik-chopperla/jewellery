@@ -39,6 +39,13 @@
                     </select>
                     <input type="text" name="huid" placeholder="HUID (6-char)" class="border border-slate-300 rounded-lg px-2.5 py-2">
                 </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <select name="barcode_format" class="border border-slate-300 rounded-lg px-2.5 py-2">
+                        <option value="code128">Code 128</option>
+                        <option value="ean13">EAN-13</option>
+                    </select>
+                    <input type="text" name="barcode" maxlength="60" placeholder="Barcode (auto if blank)" class="border border-slate-300 rounded-lg px-2.5 py-2 font-mono">
+                </div>
                 <div class="grid grid-cols-3 gap-2">
                     <input type="number" step="1" name="purchase_cost" value="0" placeholder="Cost ₹" class="border border-slate-300 rounded-lg px-2 py-2">
                     <input type="number" step="1" name="stone_charge" value="0" placeholder="Stone ₹" class="border border-slate-300 rounded-lg px-2 py-2">
@@ -164,6 +171,27 @@
                                 <span class="px-2 py-0.5 text-xs rounded-full {{ $it->status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700' }}">{{ ucfirst($it->status) }}</span>
                             </td>
                             <td class="px-3 py-2 text-right whitespace-nowrap">
+                                @if(auth()->user()->hasPermission(['security', 'approvals']))
+                                    <details class="inline-block text-left align-middle">
+                                        <summary class="cursor-pointer rounded border border-slate-300 px-2 py-1 text-xs text-slate-700">Barcode</summary>
+                                        <div class="absolute z-20 mt-1 w-72 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
+                                            <form action="{{ route('inventory.barcode.update', $it) }}" method="POST" class="space-y-2">
+                                                @csrf
+                                                @method('PUT')
+                                                <input name="barcode" value="{{ $it->barcode }}" required maxlength="60" class="w-full rounded border px-2 py-1 font-mono text-xs">
+                                                <select name="barcode_format" class="w-full rounded border px-2 py-1 text-xs">
+                                                    <option value="code128" @selected($it->barcode_format === 'code128')>Code 128</option>
+                                                    <option value="ean13" @selected($it->barcode_format === 'ean13')>EAN-13</option>
+                                                </select>
+                                                <button class="w-full rounded bg-slate-800 px-2 py-1.5 text-xs font-semibold text-white">Save Barcode</button>
+                                            </form>
+                                            <form action="{{ route('inventory.barcode.regenerate', $it) }}" method="POST" class="mt-2" onsubmit="return confirm('Replace this barcode? Existing tags must be reprinted.');">
+                                                @csrf
+                                                <button class="w-full rounded border border-amber-300 px-2 py-1.5 text-xs font-semibold text-amber-800">Regenerate Barcode</button>
+                                            </form>
+                                        </div>
+                                    </details>
+                                @endif
                                 <form action="{{ route('inventory.destroy', $it) }}" method="POST" class="inline" onsubmit="return confirm('Delete piece {{ $it->item_code }} ({{ $it->net_weight }}g)?');">
                                     @csrf
                                     @method('DELETE')

@@ -25,6 +25,7 @@ class SettingsController extends Controller
             'default_wastage_pct' => Setting::get('default_wastage_pct', '2.0'),
             'default_gst_rate' => Setting::get('default_gst_rate', '3.0'),
             'currency_symbol' => Setting::get('currency_symbol', '₹'),
+            'barcode_prefix' => Setting::get('barcode_prefix', '890'),
             'business_logo_path' => Setting::get('business_logo_path'),
             'invoice_shop_copy' => Setting::get('invoice_shop_copy', '0') === '1',
         ];
@@ -49,6 +50,7 @@ class SettingsController extends Controller
             'default_wastage_pct' => 'nullable|numeric|min:0',
             'default_gst_rate' => 'nullable|numeric|min:0',
             'currency_symbol' => 'nullable|string|max:10',
+            'barcode_prefix' => ['nullable', 'string', 'max:12', 'regex:/^[A-Za-z0-9_-]*$/'],
             'invoice_shop_copy' => 'nullable|boolean',
             'business_logo' => 'nullable|image|mimes:jpeg,png|max:2048',
         ]);

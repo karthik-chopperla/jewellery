@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\InvoiceExchangeController;
 use App\Http\Controllers\InvoiceShareController;
+use App\Http\Controllers\InventoryQrController;
 use App\Http\Controllers\GoldSchemeController;
 use App\Http\Controllers\MetalRateController;
 use App\Http\Controllers\OldGoldController;
@@ -25,6 +26,9 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/shared/invoices/{share}/pdf', [InvoiceShareController::class, 'access'])
     ->middleware(['signed', 'throttle:30,1'])
     ->name('invoices.shared-pdf');
+Route::get('/jewellery/item/{token}', [InventoryQrController::class, 'show'])
+    ->middleware('throttle:30,1')
+    ->name('inventory.qr.lookup');
 
 Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->middleware('permission:dashboard')->name('dashboard');
@@ -49,16 +53,25 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
         Route::post('/inventory/transfer', [ProductInventoryController::class, 'transferStock'])->name('inventory.transfer');
         Route::post('/inventory/adjust', [ProductInventoryController::class, 'adjustStock'])->name('inventory.adjust');
         Route::get('/inventory/labels', [ProductInventoryController::class, 'labels'])->name('inventory.labels');
+        Route::post('/inventory/labels/barcodes', [ProductInventoryController::class, 'generateMissingBarcodes'])->name('inventory.labels.barcodes.generate');
+        Route::post('/inventory/labels/qr-codes', [ProductInventoryController::class, 'generateMissingQrCodes'])->name('inventory.labels.qr.generate');
+        Route::post('/inventory/labels/print', [ProductInventoryController::class, 'printLabels'])->name('inventory.labels.print');
+        Route::get('/inventory/labels/preview', [ProductInventoryController::class, 'previewLabels'])->name('inventory.labels.preview');
         Route::get('/stones-hallmark', [ProductInventoryController::class, 'stonesAndHallmarking'])->name('stones.hallmark');
         Route::post('/stones', [ProductInventoryController::class, 'storeStone'])->name('stones.store');
         Route::delete('/stones/{stone}', [ProductInventoryController::class, 'destroyStone'])->name('stones.destroy');
         Route::post('/hallmark', [ProductInventoryController::class, 'storeHallmark'])->name('hallmark.store');
         Route::delete('/hallmark/{hallmark}', [ProductInventoryController::class, 'destroyHallmark'])->name('hallmark.destroy');
     });
+    Route::middleware(['permission:inventory', 'permission:approvals'])->group(function () {
+        Route::put('/inventory/{inventoryItem}/barcode', [ProductInventoryController::class, 'updateBarcode'])->name('inventory.barcode.update');
+        Route::post('/inventory/{inventoryItem}/barcode/regenerate', [ProductInventoryController::class, 'regenerateBarcode'])->name('inventory.barcode.regenerate');
+    });
 
     // Modules 5, 6, 17: POS, Billing, Price Engine, Returns
     Route::middleware('permission:pos')->group(function () {
         Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
+        Route::get('/pos/barcode-lookup', [PosController::class, 'lookupBarcode'])->name('pos.barcode.lookup');
         Route::post('/pos/calculate', [PosController::class, 'calculatePreview'])->name('pos.calculate');
         Route::post('/pos/checkout', [PosController::class, 'store'])->name('pos.store');
         Route::post('/pos/customers/quick-create', [PosController::class, 'quickStoreCustomer'])->name('pos.customers.quick-store');

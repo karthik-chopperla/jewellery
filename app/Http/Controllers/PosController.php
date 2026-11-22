@@ -95,6 +95,68 @@ class PosController extends Controller
         ));
     }
 
+    public function lookupBarcode(Request $request)
+    {
+        $data = $request->validate([
+            'code' => 'required|string|max:60',
+            'branch_id' => 'required|integer|exists:branches,id',
+        ]);
+        $code = trim($data['code']);
+        $item = InventoryItem::with('product.category')
+            ->where(function ($query) use ($code) {
+                $query->where('barcode', $code)
+                    ->orWhere('item_code', $code)
+                    ->orWhere('huid', $code);
+            })
+            ->first();
+
+        if (!$item) {
+            return response()->json(['message' => 'No inventory item matches this barcode or item code.'], 404);
+        }
+
+        if ($item->status !== 'available') {
+            return response()->json([
+                'message' => "{$item->item_code} is not available for sale (status: {$item->status}).",
+                'status' => $item->status,
+            ], 409);
+        }
+
+        if ((int) $item->branch_id !== (int) $data['branch_id']) {
+            return response()->json(['message' => "{$item->item_code} belongs to another branch."], 409);
+        }
+
+        $product = $item->product;
+        $metal = $product->metal_type ?? 'Gold';
+
+        return response()->json([
+            'item' => [
+                'id' => $item->id,
+                'branch_id' => $item->branch_id,
+                'item_code' => $item->item_code,
+                'sku' => $product->sku ?? $item->item_code,
+                'barcode' => $item->barcode,
+                'huid' => $item->huid,
+                'name' => $product->name ?? $item->item_code,
+                'category_name' => $product->category->name ?? '',
+                'hsn_code' => $product->hsn_code ?? '',
+                'metal_type' => $metal,
+                'purity' => $item->purity,
+                'gross_weight' => (float) $item->gross_weight,
+                'stone_weight' => (float) $item->stone_weight,
+                'net_weight' => (float) $item->net_weight,
+                'metal_rate' => MetalRate::latestRate($metal, $item->purity, $item->branch_id),
+                'making_charge_type' => $product->making_charge_type ?? 'per_gram',
+                'making_charge_rate' => (float) ($product->making_charge_value ?? 0),
+                'wastage_pct' => (float) ($product->wastage_pct ?? 0),
+                'stone_charge' => (float) $item->stone_charge,
+                'diamond_charge' => (float) $item->diamond_charge,
+                'hallmark_charge' => (float) $item->hallmark_charge,
+                'other_charge' => (float) $item->other_charge,
+                'gst_rate' => (float) ($product->gst_rate ?? $product->category->gst_rate ?? 0),
+            ],
+        ]);
+    }
+
     public function calculatePreview(Request $request, JewelleryPriceCalculator $calculator)
     {
         $validated = $request->validate([

@@ -52,6 +52,12 @@
                 </div>
             </div>
 
+            <div class="max-w-sm">
+                <label class="block font-medium text-slate-600 mb-1">Barcode Prefix</label>
+                <input type="text" name="barcode_prefix" value="{{ old('barcode_prefix', $settings['barcode_prefix']) }}" maxlength="12" pattern="[A-Za-z0-9_-]*" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono">
+                <p class="mt-1 text-[11px] text-slate-500">Used for new inventory barcodes. EAN-13 generation requires a numeric prefix.</p>
+            </div>
+
             <div>
                 <label class="block font-medium text-slate-600 mb-1">Showroom Address (Printed on Invoices)</label>
                 <textarea name="address" rows="2" placeholder="Street, Market, City, State..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">{{ old('address', $settings['address']) }}</textarea>

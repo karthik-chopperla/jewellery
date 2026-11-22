@@ -3,7 +3,7 @@
 @section('header', 'Jewellery Sales Entry')
 
 @section('content')
-<div x-data="jewelleryPos()" class="space-y-5">
+<div x-data="jewelleryPos()" x-init="barcodeLookupUrl = $el.dataset.barcodeLookupUrl" data-barcode-lookup-url="{{ route('pos.barcode.lookup') }}" class="space-y-5">
     <form action="{{ route('pos.store') }}" method="POST" @submit="prepareSubmit($event)" class="space-y-5">
         @csrf
         <input type="hidden" name="branch_id" :value="branchId">
@@ -98,11 +98,12 @@
                     <p class="mt-1 text-xs text-slate-500">Use Tab to move through cells. Scan a tag/barcode and press Enter to add a matching item.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <input type="search" x-model="search" @keydown.enter.prevent="addFirstMatch()" class="w-64 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Scan barcode / search code, HUID, name">
+                    <input type="search" x-model="search" @input="scanError = ''" @keydown.enter.prevent="addFirstMatch()" class="w-64 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Scan barcode / search code, HUID, name">
                     <button type="button" @click="addCustomItem()" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">+ Manual item</button>
                 </div>
             </div>
 
+            <p x-show="scanError" x-text="scanError" role="alert" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700"></p>
             <div class="max-h-48 overflow-y-auto rounded-lg border border-slate-200" x-show="search.trim().length > 0 && filteredCatalog().length > 0">
                 <template x-for="item in filteredCatalog().slice(0, 12)" :key="item.id">
                     <button type="button" @click="addItem(item); search = ''" class="flex w-full items-center justify-between border-b border-slate-100 px-3 py-2 text-left text-xs last:border-0 hover:bg-amber-50">
@@ -283,6 +284,8 @@ function jewelleryPos() {
         previewUrl: @json(route('pos.calculate')),
         customerUrl: @json(route('pos.customers.quick-store')),
         search: '',
+        scanError: '',
+        barcodeLookupUrl: '',
         cart: [],
         customerId: '',
         customer: { name: '', phone: '', gstin: '', address: '', state: '' },
@@ -342,20 +345,63 @@ function jewelleryPos() {
             const rate = this.rateCatalog.find(entry => entry.metal_type === row.metal_type && entry.purity === row.purity);
             row.metal_rate = rate ? rate.rate : 0;
         },
-        addFirstMatch() {
-            const match = this.filteredCatalog()[0];
-            if (match) {
-                this.addItem(match);
+        async addFirstMatch() {
+            const query = this.search.trim();
+            if (!query) return;
+            const exact = this.catalog.find(item => String(item.branch_id) === String(this.branchId) &&
+                [item.barcode, item.item_code, item.huid, item.sku]
+                    .some(value => String(value || '').toLowerCase() === query.toLowerCase()));
+            if (exact) {
+                this.addItem(exact);
                 this.search = '';
+                return;
+            }
+
+            try {
+                await this.lookupAndAdd(query);
+            } catch (error) {
+                if (error.status === 404) {
+                    const match = this.filteredCatalog()[0];
+                    if (match) {
+                        this.addItem(match);
+                        this.search = '';
+                        return;
+                    }
+                }
+                this.scanError = error.message || 'Barcode lookup failed. Please try again.';
             }
         },
-        scanIntoRow(row) {
+        async lookupAndAdd(query) {
+            const url = new URL(this.barcodeLookupUrl, window.location.origin);
+            url.searchParams.set('code', query);
+            url.searchParams.set('branch_id', this.branchId);
+            const response = await fetch(url, { headers: { Accept: 'application/json' } });
+            const result = await response.json();
+            if (!response.ok) {
+                const error = new Error(result.message || 'This jewellery item could not be added.');
+                error.status = response.status;
+                throw error;
+            }
+            this.addItem(result.item);
+            this.search = '';
+        },
+        async scanIntoRow(row) {
+            const code = String(row.barcode || '').trim();
             const scanned = this.catalog.find(item => String(item.branch_id) === String(this.branchId) &&
                 [item.barcode, item.huid, item.item_code, item.sku].some(value =>
-                    String(value || '').toLowerCase() === String(row.barcode || '').toLowerCase()));
+                    String(value || '').toLowerCase() === code.toLowerCase()));
             if (scanned) {
                 this.addItem(scanned);
                 this.search = '';
+                return;
+            }
+            if (code) {
+                try {
+                    await this.lookupAndAdd(code);
+                    row.barcode = '';
+                } catch (error) {
+                    this.scanError = error.message || 'Barcode lookup failed. Please try again.';
+                }
             }
         },
         itemRow(item = {}) {
