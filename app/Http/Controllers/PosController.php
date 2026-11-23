@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\CustomerAdvanceTransaction;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -14,6 +15,7 @@ use App\Models\LoyaltyTransaction;
 use App\Models\MetalRate;
 use App\Models\OldGoldPurchase;
 use App\Models\SalesReturn;
+use App\Models\Setting;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\AuditService;
@@ -32,11 +34,11 @@ use Illuminate\Validation\ValidationException;
 
 class PosController extends Controller
 {
-    public function index()
+    public function index(JewelleryPriceCalculator $calculator)
     {
         $branchId = Auth::user()->branch_id ?? Branch::first()?->id;
         $branches = Branch::where('is_active', true)->get();
-        $customers = Customer::orderBy('name')->get(['id', 'name', 'phone', 'gstin', 'address']);
+        $customers = Customer::orderBy('name')->get(['id', 'name', 'phone', 'gstin', 'address', 'state', 'advance_balance']);
         $salespersons = User::whereIn('role', ['salesperson', 'manager', 'admin'])->get();
         $availableItems = InventoryItem::with('product')
             ->where('status', 'available')
@@ -53,11 +55,14 @@ class PosController extends Controller
                     'huid' => $item->huid,
                     'name' => $item->product->name ?? $item->item_code,
                     'category_name' => $item->product->category->name ?? '',
+                    'category_id' => $item->product->category->id ?? null,
                     'hsn_code' => $item->product->hsn_code ?? '',
                     'metal_type' => $metal,
                     'purity' => $item->purity,
                     'gross_weight' => (float) $item->gross_weight,
                     'stone_weight' => (float) $item->stone_weight,
+                    'diamond_weight' => (float) $item->diamond_weight,
+                    'other_deductions' => (float) $item->other_weight_deductions,
                     'net_weight' => (float) $item->net_weight,
                     'metal_rate' => $rate,
                     'making_charge_type' => $item->product->making_charge_type ?? 'per_gram',
@@ -74,6 +79,53 @@ class PosController extends Controller
         $recentInvoices = Invoice::with(['customer', 'branch'])->latest('billed_at')->take(10)->get();
         $oldGoldAvailable = OldGoldPurchase::with('customer')->where('status', 'approved')->whereNull('invoice_id')->get();
         $categories = Category::orderBy('name')->get(['id', 'name', 'gst_rate']);
+        $defaultGstRate = (float) Setting::get('default_gst_rate', '3');
+        $necklaceCategory = $categories->first(fn ($category) => str_contains(strtolower($category->name), 'necklace'));
+        $ringCategory = $categories->first(fn ($category) => str_contains(strtolower($category->name), 'ring'));
+        $practiceItems = [
+            [
+                'product_name' => '22K Gold Necklace',
+                'gross_weight' => 20,
+                'stone_weight' => 1,
+                'metal_rate' => 12000,
+                'making_charge_type' => 'fixed',
+                'making_charge_rate' => 15000,
+                'stone_charge' => 5000,
+                'gst_rate' => (float) ($necklaceCategory?->gst_rate ?? $defaultGstRate),
+            ],
+            [
+                'product_name' => '22K Gold Ring',
+                'gross_weight' => 5,
+                'stone_weight' => 0.2,
+                'metal_rate' => 12000,
+                'making_charge_type' => 'fixed',
+                'making_charge_rate' => 4000,
+                'gst_rate' => (float) ($ringCategory?->gst_rate ?? $defaultGstRate),
+            ],
+        ];
+        $practiceExample = $calculator->calculateInvoice($practiceItems, [
+            'gst_type' => 'intra',
+            'rounding_mode' => 'none',
+        ]);
+        $practiceOldGoldRate = MetalRate::latestRate('Gold', '24K', (int) $branchId);
+        $practiceOldGold = $practiceOldGoldRate > 0
+            ? $calculator->calculateOldGold([
+                'gross_weight' => 5,
+                'stone_weight' => 0.2,
+                'purity_pct' => 91.67,
+                'deduction_pct' => 2,
+                'melting_loss_pct' => 1,
+                'applied_rate' => $practiceOldGoldRate,
+            ])
+            : null;
+        $practiceAdjustedExample = $practiceOldGold
+            ? $calculator->calculateInvoice($practiceItems, [
+                'gst_type' => 'intra',
+                'rounding_mode' => 'none',
+                'old_gold_deduction' => $practiceOldGold['valuation_amount'],
+                'advance_adjusted' => 10000,
+            ])
+            : null;
         $metalRateCatalog = MetalRate::where('status', 'approved')
             ->where('effective_at', '<=', now())
             ->where(function ($query) use ($branchId) {
@@ -91,7 +143,8 @@ class PosController extends Controller
 
         return view('pos.index', compact(
             'branchId', 'branches', 'customers', 'salespersons',
-            'availableItems', 'recentInvoices', 'oldGoldAvailable', 'categories', 'metalRateCatalog'
+            'availableItems', 'recentInvoices', 'oldGoldAvailable', 'categories', 'metalRateCatalog',
+            'practiceExample', 'practiceOldGold', 'practiceOldGoldRate', 'practiceAdjustedExample'
         ));
     }
 
@@ -138,11 +191,14 @@ class PosController extends Controller
                 'huid' => $item->huid,
                 'name' => $product->name ?? $item->item_code,
                 'category_name' => $product->category->name ?? '',
+                'category_id' => $product->category->id ?? null,
                 'hsn_code' => $product->hsn_code ?? '',
                 'metal_type' => $metal,
                 'purity' => $item->purity,
                 'gross_weight' => (float) $item->gross_weight,
                 'stone_weight' => (float) $item->stone_weight,
+                'diamond_weight' => (float) $item->diamond_weight,
+                'other_deductions' => (float) $item->other_weight_deductions,
                 'net_weight' => (float) $item->net_weight,
                 'metal_rate' => MetalRate::latestRate($metal, $item->purity, $item->branch_id),
                 'making_charge_type' => $product->making_charge_type ?? 'per_gram',
@@ -165,6 +221,7 @@ class PosController extends Controller
             'items.*.quantity' => 'nullable|integer|min:1|max:1000',
             'items.*.gross_weight' => 'required|numeric|min:0|max:100000',
             'items.*.stone_weight' => 'nullable|numeric|min:0|max:100000',
+            'items.*.diamond_weight' => 'nullable|numeric|min:0|max:100000',
             'items.*.other_deductions' => 'nullable|numeric|min:0|max:100000',
             'items.*.metal_rate' => 'nullable|numeric|min:0|max:100000000',
             'items.*.wastage_pct' => 'nullable|numeric|min:0|max:100',
@@ -277,9 +334,34 @@ class PosController extends Controller
             'notes' => 'nullable|string|max:2000',
         ]);
 
+        if ($validated['invoice_type'] === 'credit' && ! Auth::user()->hasPermission('pos_manage')) {
+            abort(403, 'You do not have permission to create a credit sale.');
+        }
+
         return DB::transaction(function () use ($request, $validated, $calculator, $itemPricing, $itemWriter) {
             $branchId = (int) $validated['branch_id'];
             $invoiceType = $validated['invoice_type'];
+            $customer = isset($validated['customer_id'])
+                ? Customer::whereKey($validated['customer_id'])->lockForUpdate()->first()
+                : null;
+            $advanceUsed = (float) ($validated['advance_adjusted'] ?? 0);
+            if ($advanceUsed > 0) {
+                if ($invoiceType === 'estimate') {
+                    throw ValidationException::withMessages([
+                        'advance_adjusted' => 'Customer advances can be applied only to a saved sale.',
+                    ]);
+                }
+                if (! $customer) {
+                    throw ValidationException::withMessages([
+                        'advance_adjusted' => 'Select a customer before using a customer advance.',
+                    ]);
+                }
+                if ($advanceUsed > (float) $customer->advance_balance) {
+                    throw ValidationException::withMessages([
+                        'advance_adjusted' => 'The amount used exceeds this customer’s available advance balance.',
+                    ]);
+                }
+            }
             $pricedItems = $itemPricing->prepare($validated['items'], $branchId, $invoiceType);
             $oldGold = $this->prepareOldGold($validated['old_gold'] ?? null, $branchId, $calculator);
             $options = [
@@ -320,7 +402,6 @@ class PosController extends Controller
             $balanceDue = round(max(0, $grandTotal - $paidAmount), 2);
             $changeReturn = round(max(0, $amountReceived - $grandTotal), 2);
             $status = $invoiceType === 'estimate' ? 'estimate' : ($balanceDue <= 0 ? 'paid' : ($paidAmount > 0 ? 'partial' : 'credit'));
-            $customer = isset($validated['customer_id']) ? Customer::find($validated['customer_id']) : null;
             $businessSnapshot = InvoiceSnapshot::forBranch(Branch::findOrFail($branchId));
 
             $invoice = Invoice::create(array_merge([
@@ -331,7 +412,7 @@ class PosController extends Controller
                 'customer_phone_snapshot' => $validated['customer_phone'] ?? $customer?->phone,
                 'customer_gstin' => $validated['customer_gstin'] ?? $customer?->gstin,
                 'customer_address' => $validated['customer_address'] ?? $customer?->address,
-                'customer_state' => $validated['customer_state'] ?? null,
+                'customer_state' => $validated['customer_state'] ?? $customer?->state,
                 'order_reference' => $validated['order_reference'] ?? null,
                 'salesperson_id' => $validated['salesperson_id'] ?? Auth::id(),
                 'cashier_id' => Auth::id(),
@@ -371,6 +452,21 @@ class PosController extends Controller
                     'reference_no' => $payment['reference_no'] ?? null,
                     'paid_at' => now(),
                     'received_by' => Auth::id(),
+                ]);
+            }
+
+            if ($customer && $advanceUsed > 0 && $invoiceType !== 'estimate') {
+                $customer->decrement('advance_balance', $advanceUsed);
+                $customer->refresh();
+                CustomerAdvanceTransaction::create([
+                    'customer_id' => $customer->id,
+                    'invoice_id' => $invoice->id,
+                    'received_by' => Auth::id(),
+                    'type' => 'applied',
+                    'amount' => $advanceUsed,
+                    'balance_after' => $customer->advance_balance,
+                    'reference_no' => $invoice->invoice_no,
+                    'description' => "Applied to invoice {$invoice->invoice_no}",
                 ]);
             }
 
@@ -433,6 +529,7 @@ class PosController extends Controller
             'phone' => 'required|string|max:30|unique:customers,phone',
             'address' => 'nullable|string|max:2000',
             'gstin' => 'nullable|string|max:15',
+            'state' => 'nullable|string|max:100',
         ]);
         $data['customer_code'] = 'CUST-' . str_pad((string) ((Customer::max('id') ?? 0) + 1), 4, '0', STR_PAD_LEFT);
         $customer = Customer::create($data);
@@ -444,6 +541,8 @@ class PosController extends Controller
             'phone' => $customer->phone,
             'address' => $customer->address,
             'gstin' => $customer->gstin,
+            'state' => $customer->state,
+            'advance_balance' => (float) $customer->advance_balance,
         ], 201);
     }
 

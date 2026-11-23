@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\CustomerAdvanceTransaction;
 use App\Models\CustomerFeedback;
 use App\Models\LoyaltyTransaction;
 use App\Models\MarketingCampaign;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class CustomerCrmController extends Controller
 {
@@ -105,8 +108,39 @@ class CustomerCrmController extends Controller
 
     public function show(Customer $customer)
     {
-        $customer->load(['invoices.items', 'oldGoldPurchases', 'goldSchemes', 'loyaltyTransactions', 'wishlists.product']);
+        $customer->load(['invoices.items', 'oldGoldPurchases', 'goldSchemes', 'loyaltyTransactions', 'advanceTransactions', 'wishlists.product']);
         return view('crm.show', compact('customer'));
+    }
+
+    public function recordAdvance(Customer $customer, Request $request)
+    {
+        $data = $request->validate([
+            'amount' => 'required|numeric|gt:0',
+            'payment_method' => 'required|in:cash,upi,card,bank_transfer',
+            'reference_no' => 'nullable|string|max:80',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        $transaction = DB::transaction(function () use ($customer, $data) {
+            $lockedCustomer = Customer::whereKey($customer->id)->lockForUpdate()->firstOrFail();
+            $lockedCustomer->increment('advance_balance', $data['amount']);
+            $lockedCustomer->refresh();
+
+            return CustomerAdvanceTransaction::create([
+                'customer_id' => $lockedCustomer->id,
+                'received_by' => Auth::id(),
+                'type' => 'received',
+                'amount' => $data['amount'],
+                'balance_after' => $lockedCustomer->advance_balance,
+                'payment_method' => $data['payment_method'],
+                'reference_no' => $data['reference_no'] ?? null,
+                'description' => $data['description'] ?? 'Customer advance received',
+            ]);
+        });
+
+        AuditService::log('CRM', 'customer_advance', "Received ₹{$transaction->amount} advance from {$customer->name}", $transaction);
+
+        return back()->with('success', 'Customer advance recorded.');
     }
 
     public function adjustLoyalty(Customer $customer, Request $request)

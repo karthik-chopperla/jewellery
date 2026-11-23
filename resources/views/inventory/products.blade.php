@@ -6,11 +6,12 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="bg-white rounded-xl border border-slate-200 p-5 h-fit">
         <h2 class="text-base font-semibold text-slate-800 mb-4">Add Jewellery Product</h2>
+        <p class="mb-4 text-xs leading-5 text-slate-500">First save the reusable product model. Then register each physical piece in Inventory &amp; Stock; every piece gets its own barcode, QR code and weights. POS uses the current approved metal rate.</p>
         <form action="{{ route('products.store') }}" method="POST" class="space-y-3 text-sm">
             @csrf
             <div class="grid grid-cols-2 gap-2">
                 <input type="text" name="sku" required placeholder="SKU e.g. SKU-RNG-009" class="border border-slate-300 rounded-lg px-3 py-2 text-xs">
-                <select name="category_id" class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                <select name="category_id" required class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
                     @foreach($categories as $c)
                         <option value="{{ $c->id }}">{{ $c->name }}</option>
                     @endforeach
@@ -22,7 +23,7 @@
                     <option>Ring</option><option>Necklace</option><option>Chain</option><option>Bracelet</option><option>Earrings</option><option>Bangles</option><option>Pendant</option><option>Coins</option>
                 </select>
                 <select name="metal_type" class="border border-slate-300 rounded-lg px-2 py-2 text-xs">
-                    <option>Gold</option><option>Silver</option><option>Platinum</option>
+                    <option>Gold</option><option>Silver</option><option>Diamond</option><option>Platinum</option>
                 </select>
                 <select name="purity" class="border border-slate-300 rounded-lg px-2 py-2 text-xs">
                     <option>22K</option><option>24K</option><option>20K</option><option>18K</option><option>14K</option><option>999</option><option>950</option>
@@ -48,7 +49,10 @@
                 @endforeach
             </select>
             <textarea name="description" rows="2" placeholder="Description..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs"></textarea>
-            <button class="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg text-xs font-semibold">Save Product</button>
+            <div class="grid grid-cols-2 gap-2">
+                <button class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Save Product</button>
+                <button name="next_step" value="inventory" class="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700">Save &amp; Add Stock</button>
+            </div>
         </form>
     </div>
 
@@ -86,6 +90,7 @@
                             <td class="px-3 py-2 text-xs">{{ $p->making_charge_value }} ({{ $p->making_charge_type }}) · W: {{ $p->wastage_pct }}%</td>
                             <td class="px-3 py-2 text-center font-bold {{ $p->available_count > 0 ? 'text-emerald-700' : 'text-rose-600' }}">{{ $p->available_count }}</td>
                             <td class="px-3 py-2 text-right whitespace-nowrap">
+                                <a href="{{ route('inventory.index', ['product_id' => $p->id]) }}" class="mr-2 inline-block rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 hover:bg-amber-100">Add Piece</a>
                                 <form action="{{ route('products.destroy', $p) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete product {{ $p->sku }} ({{ $p->name }})?');">
                                     @csrf
                                     @method('DELETE')

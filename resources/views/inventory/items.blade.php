@@ -7,18 +7,27 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Register Individual Piece -->
         <div class="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 class="text-base font-semibold text-slate-800 mb-3">Register Unique Jewellery Piece</h2>
+            <h2 class="text-base font-semibold text-slate-800 mb-1">Add Jewellery Stock</h2>
+            <p class="mb-3 text-xs leading-5 text-slate-500">Each piece is stored separately so it can have its own barcode, QR code and HUID. For identical pieces, enter the number of pieces; do not reuse HUIDs.</p>
+            @if(session('success'))
+                <div class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+                    <div>{{ session('success') }}</div>
+                    @if(session('created_inventory_ids'))
+                        <a href="{{ route('inventory.labels.preview', ['ids' => session('created_inventory_ids'), 'template' => 'qr']) }}" target="_blank" rel="noopener" class="mt-2 inline-flex font-semibold underline">Preview &amp; print {{ count(session('created_inventory_ids')) }} tag(s)</a>
+                    @endif
+                </div>
+            @endif
             <form action="{{ route('inventory.store') }}" method="POST" class="space-y-2.5 text-xs">
                 @csrf
                 <select name="product_id" required class="w-full border border-slate-300 rounded-lg px-3 py-2">
                     @foreach($products as $p)
-                        <option value="{{ $p->id }}">{{ $p->name }} ({{ $p->purity }} {{ $p->metal_type }})</option>
+                        <option value="{{ $p->id }}" @selected((string) request('product_id') === (string) $p->id)>{{ $p->name }} ({{ $p->purity }} {{ $p->metal_type }})</option>
                     @endforeach
                 </select>
                 <div class="grid grid-cols-2 gap-2">
                     <select name="branch_id" required class="border border-slate-300 rounded-lg px-2.5 py-2">
                         @foreach($branches as $b)
-                            <option value="{{ $b->id }}">{{ $b->name }}</option>
+                            <option value="{{ $b->id }}" @selected((int) auth()->user()->branch_id === (int) $b->id)>{{ $b->name }}</option>
                         @endforeach
                     </select>
                     <select name="counter_id" class="border border-slate-300 rounded-lg px-2.5 py-2">
@@ -28,10 +37,28 @@
                         @endforeach
                     </select>
                 </div>
+                <select name="supplier_id" class="w-full border border-slate-300 rounded-lg px-3 py-2">
+                    <option value="">Supplier (optional)</option>
+                    @foreach($suppliers as $supplier)
+                        <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                    @endforeach
+                </select>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="text-slate-600">Identical pieces to add
+                        <input type="number" name="quantity" min="1" max="100" step="1" value="1" required class="mt-1 w-full border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800">
+                    </label>
+                    <label class="text-slate-600">Stock entry date
+                        <input type="date" name="stock_entry_date" value="{{ now()->format('Y-m-d') }}" class="mt-1 w-full border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800">
+                    </label>
+                </div>
                 <div class="grid grid-cols-3 gap-2">
                     <input type="number" step="0.001" name="gross_weight" required placeholder="Gross Wt (g)" class="border border-slate-300 rounded-lg px-2.5 py-2">
                     <input type="number" step="0.001" name="stone_weight" value="0" placeholder="Stone Wt (g)" class="border border-slate-300 rounded-lg px-2.5 py-2">
                     <input type="number" step="0.001" name="diamond_weight" value="0" placeholder="Dia (ct)" class="border border-slate-300 rounded-lg px-2.5 py-2">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" step="0.001" name="other_weight_deductions" value="0" placeholder="Other weight deductions (g)" class="border border-slate-300 rounded-lg px-2.5 py-2">
+                    <input type="text" name="purchase_reference" maxlength="100" placeholder="Purchase reference (optional)" class="border border-slate-300 rounded-lg px-2.5 py-2">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <select name="purity" class="border border-slate-300 rounded-lg px-2.5 py-2">
@@ -50,6 +77,10 @@
                     <input type="number" step="1" name="purchase_cost" value="0" placeholder="Cost ₹" class="border border-slate-300 rounded-lg px-2 py-2">
                     <input type="number" step="1" name="stone_charge" value="0" placeholder="Stone ₹" class="border border-slate-300 rounded-lg px-2 py-2">
                     <input type="number" step="1" name="diamond_charge" value="0" placeholder="Diamond ₹" class="border border-slate-300 rounded-lg px-2 py-2">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" step="1" name="hallmark_charge" value="45" placeholder="Hallmark charge ₹" class="border border-slate-300 rounded-lg px-2.5 py-2">
+                    <input type="number" step="1" name="other_charge" value="0" placeholder="Other charge ₹" class="border border-slate-300 rounded-lg px-2.5 py-2">
                 </div>
                 <button class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 rounded-lg">Register Piece & Generate Barcode</button>
             </form>
@@ -144,7 +175,8 @@
                         <th class="px-3 py-2 text-left">Item / Barcode</th>
                         <th class="px-3 py-2 text-left">Product</th>
                         <th class="px-3 py-2 text-left">Branch / Counter</th>
-                        <th class="px-3 py-2 text-right">Gross / Net Wt</th>
+                        <th class="px-3 py-2 text-right">Gross / Stone / Deduction / Net</th>
+                        <th class="px-3 py-2 text-left">Stock entry / Purchase ref.</th>
                         <th class="px-3 py-2 text-left">HUID</th>
                         <th class="px-3 py-2 text-center">Status</th>
                         <th class="px-3 py-2 text-right">Action</th>
@@ -164,7 +196,12 @@
                             <td class="px-3 py-2 text-xs">{{ $it->branch->code ?? '' }} · {{ $it->counter->name ?? '-' }}</td>
                             <td class="px-3 py-2 text-right text-xs">
                                 <div>G: {{ number_format($it->gross_weight, 3) }}g</div>
+                                <div>St: {{ number_format($it->stone_weight, 3) }}g · Ded: {{ number_format($it->other_weight_deductions, 3) }}g</div>
                                 <div class="font-semibold text-amber-700">N: {{ number_format($it->net_weight, 3) }}g</div>
+                            </td>
+                            <td class="px-3 py-2 text-xs">
+                                <div>{{ $it->stock_entry_date?->format('d M Y') ?? '—' }}</div>
+                                <div class="text-slate-500">{{ $it->purchase_reference ?? 'No reference' }}</div>
                             </td>
                             <td class="px-3 py-2 font-mono text-xs">{{ $it->huid ?? '-' }}</td>
                             <td class="px-3 py-2 text-center">

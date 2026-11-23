@@ -99,6 +99,7 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
         Route::get('/customers/{customer}', [CustomerCrmController::class, 'show'])->name('crm.show');
         Route::delete('/customers/{customer}', [CustomerCrmController::class, 'destroyCustomer'])->name('crm.customers.destroy');
         Route::post('/customers/{customer}/loyalty', [CustomerCrmController::class, 'adjustLoyalty'])->name('crm.loyalty');
+        Route::post('/customers/{customer}/advance', [CustomerCrmController::class, 'recordAdvance'])->name('crm.advance');
         Route::post('/campaigns', [CustomerCrmController::class, 'storeCampaign'])->name('crm.campaigns.store');
         Route::post('/campaigns/direct-greeting', [CustomerCrmController::class, 'sendDirectGreeting'])->name('crm.campaigns.direct');
         Route::delete('/campaigns/{campaign}', [CustomerCrmController::class, 'destroyCampaign'])->name('crm.campaigns.destroy');

@@ -28,6 +28,7 @@ class InventoryItem extends Model
     {
         return [
             'hallmark_date' => 'date',
+            'stock_entry_date' => 'date',
             'verified_at' => 'datetime',
             'barcode_generated_at' => 'datetime',
             'qr_generated_at' => 'datetime',

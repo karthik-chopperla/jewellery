@@ -36,6 +36,7 @@ class InvoiceItemWriter
                 'hsn_code' => $rawItem['hsn_code'] ?? null,
                 'gross_weight' => $calculation['gross_weight'],
                 'stone_weight' => $calculation['stone_weight'],
+                'diamond_weight' => (float) ($rawItem['diamond_weight'] ?? 0),
                 'other_deductions' => $calculation['other_deductions'],
                 'net_weight' => $calculation['net_weight'],
                 'metal_rate' => $calculation['metal_rate'],

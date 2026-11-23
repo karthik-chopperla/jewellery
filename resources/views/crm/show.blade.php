@@ -19,7 +19,22 @@
             <div><span class="text-slate-500">Anniversary:</span> {{ $customer->anniversary?->format('d M Y') ?? '-' }}</div>
             <div><span class="text-slate-500">Loyalty Points:</span> <strong class="text-emerald-700">{{ $customer->loyalty_points }}</strong></div>
             <div><span class="text-slate-500">Outstanding:</span> <strong class="text-rose-600">₹{{ number_format($customer->outstanding_balance, 2) }}</strong></div>
+            <div><span class="text-slate-500">Available advance:</span> <strong class="text-emerald-700">₹{{ number_format($customer->advance_balance, 2) }}</strong></div>
         </div>
+
+        <form action="{{ route('crm.advance', $customer) }}" method="POST" class="border-t border-slate-100 pt-3 space-y-2 text-xs">
+            @csrf
+            <div class="font-semibold text-slate-700">Record Customer Advance</div>
+            <div class="grid grid-cols-2 gap-2">
+                <input type="number" name="amount" min="0.01" step="0.01" required placeholder="Amount received ₹" class="border border-slate-300 rounded-lg px-2 py-1.5">
+                <select name="payment_method" required class="border border-slate-300 rounded-lg px-2 py-1.5">
+                    <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option>
+                </select>
+            </div>
+            <input type="text" name="reference_no" maxlength="80" placeholder="Transaction reference (optional)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5">
+            <input type="text" name="description" maxlength="255" placeholder="Note (optional)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5">
+            <button class="w-full bg-emerald-700 text-white py-1.5 rounded-lg font-semibold">Record Advance</button>
+        </form>
 
         <form action="{{ route('crm.loyalty', $customer) }}" method="POST" class="border-t border-slate-100 pt-3 space-y-2 text-xs">
             @csrf
@@ -54,6 +69,20 @@
                     @endforeach
                 </tbody>
             </table>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-800 mb-3">Customer Advance Ledger</h3>
+            <div class="space-y-1.5 text-xs">
+                @forelse($customer->advanceTransactions as $advance)
+                    <div class="flex flex-wrap justify-between gap-2 border-b border-slate-100 pb-1">
+                        <span>{{ $advance->description ?? ucfirst($advance->type) }} · {{ $advance->created_at->format('d M Y') }} · {{ ucfirst(str_replace('_', ' ', $advance->payment_method ?? 'invoice adjustment')) }}</span>
+                        <span class="font-semibold {{ $advance->type === 'applied' ? 'text-rose-600' : 'text-emerald-700' }}">{{ $advance->type === 'applied' ? '-' : '+' }}₹{{ number_format($advance->amount, 2) }} <span class="font-normal text-slate-500">(balance ₹{{ number_format($advance->balance_after, 2) }})</span></span>
+                    </div>
+                @empty
+                    <p class="text-slate-500">No customer advances recorded.</p>
+                @endforelse
+            </div>
         </div>
 
         <div class="bg-white rounded-xl border border-slate-200 p-5">

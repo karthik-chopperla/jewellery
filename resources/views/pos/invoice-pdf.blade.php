@@ -80,7 +80,7 @@
                 <tr>
                     <th>Jewellery / HSN</th>
                     <th class="right">Qty</th>
-                    <th class="right">Gross / Stone / Net (g)</th>
+                    <th class="right">Gross / Stone / Deduction / Net (g) · Diamond (ct)</th>
                     <th class="right">Rate / Metal value</th>
                     <th class="right">Making / Wastage</th>
                     <th class="right">Stone / Diamond</th>
@@ -100,7 +100,7 @@
                             @endif
                         </td>
                         <td class="right">{{ $item->quantity }}</td>
-                        <td class="right">{{ number_format($item->gross_weight * $item->quantity, 3) }} / {{ number_format($item->stone_weight * $item->quantity, 3) }} / {{ number_format($item->net_weight * $item->quantity, 3) }}</td>
+                        <td class="right">{{ number_format($item->gross_weight * $item->quantity, 3) }} / {{ number_format($item->stone_weight * $item->quantity, 3) }} / {{ number_format($item->other_deductions * $item->quantity, 3) }} / {{ number_format($item->net_weight * $item->quantity, 3) }}<br>{{ number_format($item->diamond_weight * $item->quantity, 3) }}ct</td>
                         <td class="right">₹{{ number_format($item->metal_rate, 2) }}/g<br>₹{{ number_format($item->metal_value, 2) }}</td>
                         <td class="right">₹{{ number_format($item->making_charge_amount, 2) }}<br>{{ number_format($item->wastage_weight * $item->quantity, 3) }}g ({{ number_format($item->wastage_pct, 2) }}%) · ₹{{ number_format($item->wastage_value, 2) }}</td>
                         <td class="right">₹{{ number_format($item->stone_charge, 2) }} / ₹{{ number_format($item->diamond_charge, 2) }}</td>

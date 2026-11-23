@@ -242,6 +242,8 @@ class JewelleryErpTest extends TestCase
     {
         $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
         $this->actingAs($admin);
+        $customer = Customer::firstOrFail();
+        $customer->update(['advance_balance' => 50]);
 
         $branch = Branch::firstOrFail();
         $stockItems = InventoryItem::with('product.category')
@@ -277,7 +279,7 @@ class JewelleryErpTest extends TestCase
 
         $this->post(route('pos.store'), [
             'branch_id' => $branch->id,
-            'customer_id' => Customer::firstOrFail()->id,
+            'customer_id' => $customer->id,
             'invoice_type' => 'sale',
             'gst_type' => 'inter',
             'discount_amount' => 20,
@@ -324,6 +326,13 @@ class JewelleryErpTest extends TestCase
         );
         $this->assertEquals('sold', $stockItems[0]->fresh()->status);
         $this->assertEquals('sold', $stockItems[1]->fresh()->status);
+        $this->assertEquals(0, (float) $customer->fresh()->advance_balance);
+        $this->assertDatabaseHas('customer_advance_transactions', [
+            'customer_id' => $customer->id,
+            'invoice_id' => $invoice->id,
+            'type' => 'applied',
+            'amount' => 50,
+        ]);
     }
 
     public function test_pos_quick_customer_creation_returns_the_customer_for_inline_selection(): void
@@ -335,15 +344,19 @@ class JewelleryErpTest extends TestCase
                 'phone' => '9000012345',
                 'address' => 'Test billing address',
                 'gstin' => '27AAACT1234A1Z5',
+                'state' => 'Maharashtra',
             ])
             ->assertCreated()
             ->assertJsonPath('name', 'POS Walk-in Test')
-            ->assertJsonPath('phone', '9000012345');
+            ->assertJsonPath('phone', '9000012345')
+            ->assertJsonPath('state', 'Maharashtra')
+            ->assertJsonPath('advance_balance', 0);
 
         $this->assertDatabaseHas('customers', [
             'name' => 'POS Walk-in Test',
             'phone' => '9000012345',
             'gstin' => '27AAACT1234A1Z5',
+            'state' => 'Maharashtra',
         ]);
     }
 
@@ -360,7 +373,146 @@ class JewelleryErpTest extends TestCase
             ->assertSee('Gross metal value')
             ->assertSee('Save and Print')
             ->assertSee('Generate Invoice')
+            ->assertSee('+ Add Jewellery Item')
+            ->assertSee('Billing steps')
+            ->assertSee('Practice grand total')
+            ->assertSeeInOrder(['Payment Details', 'Customer Adjustments (Optional)'])
+            ->assertSee("activeTab: 'payments'", false)
             ->assertSee('name="gst_type"', false);
+    }
+
+    public function test_inventory_stock_entry_creates_unique_pieces_and_pos_uses_other_weight_deductions(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin);
+        $product = \App\Models\Product::firstOrFail();
+        $branch = Branch::firstOrFail();
+
+        $this->post(route('inventory.store'), [
+            'product_id' => $product->id,
+            'branch_id' => $branch->id,
+            'quantity' => 2,
+            'gross_weight' => 3,
+            'stone_weight' => 0.1,
+            'other_weight_deductions' => 0.05,
+            'diamond_weight' => 0.2,
+            'purity' => $product->purity,
+            'barcode_format' => 'code128',
+            'stock_entry_date' => '2026-01-15',
+            'purchase_reference' => 'PO-POS-001',
+        ])->assertRedirect(route('inventory.index', ['product_id' => $product->id]));
+
+        $pieces = InventoryItem::where('purchase_reference', 'PO-POS-001')->orderBy('id')->get();
+        $this->assertCount(2, $pieces);
+        $this->assertCount(2, $pieces->pluck('barcode')->unique());
+        $this->assertCount(2, $pieces->pluck('qr_token')->unique());
+        $this->assertEquals(2.85, (float) $pieces[0]->net_weight);
+        $this->assertEquals('2026-01-15', $pieces[0]->stock_entry_date->toDateString());
+        $this->assertDatabaseHas('stock_movements', [
+            'inventory_item_id' => $pieces[0]->id,
+            'reference' => 'PO-POS-001',
+        ]);
+
+        $item = $pieces[0]->load('product.category');
+        $this->post(route('pos.store'), [
+            'branch_id' => $branch->id,
+            'invoice_type' => 'sale',
+            'gst_type' => 'intra',
+            'items' => [[
+                'inventory_item_id' => $item->id,
+                'product_name' => $item->product->name,
+                'metal_type' => $item->product->metal_type,
+                'purity' => $item->purity,
+                'gross_weight' => $item->gross_weight,
+                'stone_weight' => $item->stone_weight,
+                'other_deductions' => $item->other_weight_deductions,
+                'making_charge_type' => $item->product->making_charge_type,
+                'making_charge_rate' => $item->product->making_charge_value,
+            ]],
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        $invoiceItem = \App\Models\InvoiceItem::latest('id')->firstOrFail();
+        $this->assertEquals(0.05, (float) $invoiceItem->other_deductions);
+        $this->assertEquals(0.2, (float) $invoiceItem->diamond_weight);
+        $this->assertEquals(2.85, (float) $invoiceItem->net_weight);
+        $this->assertSame('sold', $item->fresh()->status);
+    }
+
+    public function test_customer_advance_receipts_are_ledgered_and_cannot_exceed_available_balance(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin);
+        $customer = Customer::firstOrFail();
+
+        $this->post(route('crm.advance', $customer), [
+            'amount' => 1000,
+            'payment_method' => 'upi',
+            'reference_no' => 'ADV-UPI-01',
+            'description' => 'Wedding advance',
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        $this->assertEquals(1000, (float) $customer->fresh()->advance_balance);
+        $this->assertDatabaseHas('customer_advance_transactions', [
+            'customer_id' => $customer->id,
+            'type' => 'received',
+            'amount' => 1000,
+            'balance_after' => 1000,
+            'reference_no' => 'ADV-UPI-01',
+        ]);
+
+        $branch = Branch::firstOrFail();
+        $item = InventoryItem::with('product.category')
+            ->where('branch_id', $branch->id)
+            ->where('status', 'available')
+            ->firstOrFail();
+        $this->from(route('pos.index'))->post(route('pos.store'), [
+            'branch_id' => $branch->id,
+            'customer_id' => $customer->id,
+            'invoice_type' => 'sale',
+            'gst_type' => 'intra',
+            'advance_adjusted' => 1500,
+            'items' => [[
+                'inventory_item_id' => $item->id,
+                'product_name' => $item->product->name,
+                'metal_type' => $item->product->metal_type,
+                'purity' => $item->purity,
+                'gross_weight' => $item->gross_weight,
+                'stone_weight' => $item->stone_weight,
+                'making_charge_type' => $item->product->making_charge_type,
+                'making_charge_rate' => $item->product->making_charge_value,
+            ]],
+        ])->assertRedirect(route('pos.index'))->assertSessionHasErrors('advance_adjusted');
+
+        $this->assertSame('available', $item->fresh()->status);
+        $this->assertEquals(1000, (float) $customer->fresh()->advance_balance);
+    }
+
+    public function test_partial_payment_is_not_saved_as_fully_paid(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin);
+        $branch = Branch::firstOrFail();
+
+        $this->post(route('pos.store'), [
+            'branch_id' => $branch->id,
+            'invoice_type' => 'sale',
+            'gst_type' => 'intra',
+            'payments' => [['method' => 'cash', 'amount' => 1]],
+            'items' => [[
+                'product_name' => 'Manual Gold Ring',
+                'metal_type' => 'Gold',
+                'purity' => '22K',
+                'gross_weight' => 1,
+                'making_charge_type' => 'fixed',
+                'making_charge_rate' => 0,
+                'gst_rate' => 3,
+            ]],
+        ])->assertRedirect()->assertSessionDoesntHaveErrors();
+
+        $invoice = \App\Models\Invoice::latest('id')->firstOrFail();
+        $this->assertSame('partial', $invoice->status);
+        $this->assertEquals(1, (float) $invoice->paid_amount);
+        $this->assertGreaterThan(0, (float) $invoice->balance_due);
     }
 
     public function test_pos_preview_uses_server_calculator_for_adjustments_and_tax_totals(): void
@@ -505,6 +657,36 @@ class JewelleryErpTest extends TestCase
             'purchase_cost' => 0,
             'status' => 'available',
         ]);
+    }
+
+    public function test_product_master_can_continue_directly_to_piece_registration(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin);
+        $category = \App\Models\Category::firstOrFail();
+
+        $this->post(route('products.store'), [
+            'sku' => 'TEST-POS-PRODUCT-01',
+            'name' => 'POS Workflow Gold Necklace',
+            'category_id' => $category->id,
+            'product_type' => 'Necklace',
+            'metal_type' => 'Gold',
+            'purity' => '22K',
+            'making_charge_type' => 'per_gram',
+            'making_charge_value' => 500,
+            'wastage_pct' => 2,
+            'hsn_code' => '7113',
+            'next_step' => 'inventory',
+        ])->assertRedirect(route('inventory.index', [
+            'product_id' => \App\Models\Product::where('sku', 'TEST-POS-PRODUCT-01')->value('id'),
+        ]))->assertSessionHas('success');
+
+        $product = \App\Models\Product::where('sku', 'TEST-POS-PRODUCT-01')->firstOrFail();
+        $this->assertSame('POS Workflow Gold Necklace', $product->name);
+        $this->get(route('inventory.index', ['product_id' => $product->id]))
+            ->assertOk()
+            ->assertSee('Add Jewellery Stock')
+            ->assertSee('Register each physical piece', false);
     }
 
     public function test_settings_page_and_business_name_update(): void

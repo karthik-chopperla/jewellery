@@ -57,6 +57,7 @@ class ProductInventoryController extends Controller
             'hsn_code' => 'nullable|string|max:20',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'description' => 'nullable|string',
+            'next_step' => 'nullable|in:inventory',
         ]);
 
         $product = Product::create([
@@ -76,6 +77,11 @@ class ProductInventoryController extends Controller
             'status' => 'active',
         ]);
         AuditService::log('Products', 'create', "Created product {$product->sku} - {$product->name}", $product);
+
+        if (($data['next_step'] ?? null) === 'inventory') {
+            return redirect()->route('inventory.index', ['product_id' => $product->id])
+                ->with('success', 'Product saved. Register each physical piece below to assign its own barcode.');
+        }
 
         return back()->with('success', 'Product master created.');
     }
@@ -116,9 +122,11 @@ class ProductInventoryController extends Controller
             'branch_id' => 'required|exists:branches,id',
             'counter_id' => 'nullable|exists:counters,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
+            'quantity' => 'nullable|integer|min:1|max:100',
             'gross_weight' => 'required|numeric|min:0.001',
             'stone_weight' => 'nullable|numeric|min:0',
             'diamond_weight' => 'nullable|numeric|min:0',
+            'other_weight_deductions' => 'nullable|numeric|min:0',
             'purity' => 'required|string',
             'huid' => 'nullable|string|unique:inventory_items,huid',
             'barcode' => 'nullable|string|max:60|unique:inventory_items,barcode',
@@ -128,15 +136,37 @@ class ProductInventoryController extends Controller
             'purchase_cost' => 'nullable|numeric|min:0',
             'stone_charge' => 'nullable|numeric|min:0',
             'diamond_charge' => 'nullable|numeric|min:0',
+            'other_charge' => 'nullable|numeric|min:0',
+            'stock_entry_date' => 'nullable|date',
+            'purchase_reference' => 'nullable|string|max:100',
         ]);
+
+        $quantity = (int) ($data['quantity'] ?? 1);
+        if ($quantity > 1 && ! empty($data['huid'])) {
+            throw ValidationException::withMessages([
+                'huid' => 'Enter a HUID only when registering one piece; each piece must have its own HUID.',
+            ]);
+        }
+        if ($quantity > 1 && ! empty($data['barcode'])) {
+            throw ValidationException::withMessages([
+                'barcode' => 'Enter a manual barcode only for one piece. Barcodes are generated individually for multiple pieces.',
+            ]);
+        }
 
         $stoneWt = (float) ($data['stone_weight'] ?? 0);
         $diaWt = (float) ($data['diamond_weight'] ?? 0);
+        $otherDeductions = (float) ($data['other_weight_deductions'] ?? 0);
         $grossWt = (float) $data['gross_weight'];
-        $netWt = max(0, $grossWt - $stoneWt);
+        if ($stoneWt + $otherDeductions > $grossWt) {
+            throw ValidationException::withMessages([
+                'other_weight_deductions' => 'Stone weight and other deductions cannot exceed gross weight.',
+            ]);
+        }
+        $netWt = $grossWt - $stoneWt - $otherDeductions;
         $purchaseCost = (float) ($data['purchase_cost'] ?? 0);
         $stoneCharge = (float) ($data['stone_charge'] ?? 0);
         $diamondCharge = (float) ($data['diamond_charge'] ?? 0);
+        $otherCharge = (float) ($data['other_charge'] ?? 0);
         $hallmarkCharge = (float) ($data['hallmark_charge'] ?? 45);
 
         $format = $data['barcode_format'] ?? 'code128';
@@ -144,56 +174,70 @@ class ProductInventoryController extends Controller
         if (($data['barcode'] ?? null) === null) {
             $this->assertBarcodePrefix($format, $prefix);
         }
-        $barcode = $data['barcode'] ?? $identifierService->generateBarcode($format, $prefix);
-        if ($format === 'ean13' && !$identifierService->isValidEan13($barcode)) {
+        if (($data['barcode'] ?? null) !== null && $format === 'ean13' && !$identifierService->isValidEan13($data['barcode'])) {
             throw ValidationException::withMessages(['barcode' => 'Enter a valid 13-digit EAN-13 barcode, including its check digit.']);
         }
 
-        [$item, $itemCode] = DB::transaction(function () use ($data, $grossWt, $stoneWt, $diaWt, $netWt, $purchaseCost, $stoneCharge, $diamondCharge, $hallmarkCharge, $barcode, $format, $identifierService) {
+        $createdItems = DB::transaction(function () use ($data, $quantity, $grossWt, $stoneWt, $diaWt, $otherDeductions, $netWt, $purchaseCost, $stoneCharge, $diamondCharge, $otherCharge, $hallmarkCharge, $format, $prefix, $identifierService) {
             $nextNum = (InventoryItem::max('id') ?? 0) + 1;
-            $itemCode = 'JW-' . str_pad($nextNum, 5, '0', STR_PAD_LEFT);
+            $created = [];
 
-            $item = InventoryItem::create([
-                'product_id' => $data['product_id'],
-                'branch_id' => $data['branch_id'],
-                'counter_id' => $data['counter_id'] ?? null,
-                'supplier_id' => $data['supplier_id'] ?? null,
-                'item_code' => $itemCode,
-                'barcode' => $barcode,
-                'barcode_format' => $format,
-                'barcode_generated_at' => now(),
-                'qr_token' => $identifierService->generateQrToken(),
-                'qr_generated_at' => now(),
-                'gross_weight' => round($grossWt, 3),
-                'stone_weight' => round($stoneWt, 3),
-                'diamond_weight' => round($diaWt, 3),
-                'net_weight' => round($netWt, 3),
-                'purity' => $data['purity'],
-                'huid' => !empty($data['huid']) ? $data['huid'] : null,
-                'hallmark_center' => $data['hallmark_center'] ?? null,
-                'hallmark_charge' => $hallmarkCharge,
-                'purchase_cost' => $purchaseCost,
-                'stone_charge' => $stoneCharge,
-                'diamond_charge' => $diamondCharge,
-                'other_charge' => 0,
-                'status' => 'available',
-            ]);
+            for ($index = 0; $index < $quantity; $index++) {
+                $itemCode = 'JW-' . str_pad($nextNum + $index, 5, '0', STR_PAD_LEFT);
+                $barcode = $index === 0 && ! empty($data['barcode'])
+                    ? $data['barcode']
+                    : $identifierService->generateBarcode($format, $prefix);
 
-            StockMovement::create([
-                'inventory_item_id' => $item->id,
-                'branch_id' => $item->branch_id,
-                'type' => 'stock_in',
-                'reference' => $itemCode,
-                'notes' => 'Unique jewellery piece registered',
-                'user_id' => Auth::id(),
-            ]);
+                $item = InventoryItem::create([
+                    'product_id' => $data['product_id'],
+                    'branch_id' => $data['branch_id'],
+                    'counter_id' => $data['counter_id'] ?? null,
+                    'supplier_id' => $data['supplier_id'] ?? null,
+                    'item_code' => $itemCode,
+                    'barcode' => $barcode,
+                    'barcode_format' => $format,
+                    'barcode_generated_at' => now(),
+                    'qr_token' => $identifierService->generateQrToken(),
+                    'qr_generated_at' => now(),
+                    'gross_weight' => round($grossWt, 3),
+                    'stone_weight' => round($stoneWt, 3),
+                    'other_weight_deductions' => round($otherDeductions, 3),
+                    'diamond_weight' => round($diaWt, 3),
+                    'net_weight' => round($netWt, 3),
+                    'purity' => $data['purity'],
+                    'huid' => ! empty($data['huid']) ? $data['huid'] : null,
+                    'hallmark_center' => $data['hallmark_center'] ?? null,
+                    'hallmark_charge' => $hallmarkCharge,
+                    'purchase_cost' => $purchaseCost,
+                    'stone_charge' => $stoneCharge,
+                    'diamond_charge' => $diamondCharge,
+                    'other_charge' => $otherCharge,
+                    'stock_entry_date' => $data['stock_entry_date'] ?? now()->toDateString(),
+                    'purchase_reference' => $data['purchase_reference'] ?? null,
+                    'status' => 'available',
+                ]);
 
-            return [$item, $itemCode];
+                StockMovement::create([
+                    'inventory_item_id' => $item->id,
+                    'branch_id' => $item->branch_id,
+                    'type' => 'stock_in',
+                    'reference' => $data['purchase_reference'] ?? $itemCode,
+                    'notes' => 'Unique jewellery piece registered',
+                    'user_id' => Auth::id(),
+                ]);
+
+                $created[] = $item;
+            }
+
+            return $created;
         });
 
-        AuditService::log('Inventory', 'create', "Registered piece {$itemCode} ({$item->net_weight}g)", $item);
+        $itemCodes = collect($createdItems)->pluck('item_code');
+        AuditService::log('Inventory', 'create', 'Registered ' . count($createdItems) . ' piece(s): ' . $itemCodes->join(', '), $createdItems[0]);
 
-        return back()->with('success', "Piece {$itemCode} registered with barcode {$barcode}.");
+        return redirect()->route('inventory.index', ['product_id' => $data['product_id']])
+            ->with('success', count($createdItems) . ' jewellery piece(s) registered. Each piece has its own barcode and QR code.')
+            ->with('created_inventory_ids', collect($createdItems)->pluck('id')->all());
     }
 
     public function destroyItem(InventoryItem $inventoryItem)

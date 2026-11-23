@@ -33,6 +33,11 @@ class Customer extends Model
         return $this->hasMany(LoyaltyTransaction::class);
     }
 
+    public function advanceTransactions()
+    {
+        return $this->hasMany(CustomerAdvanceTransaction::class)->latest();
+    }
+
     public function wishlists()
     {
         return $this->hasMany(CustomerWishlist::class);

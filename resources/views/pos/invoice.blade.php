@@ -73,7 +73,7 @@
                 <tr class="border-y border-slate-300 bg-slate-50">
                     <th class="py-2 px-2 text-left">Item / HSN</th>
                     <th class="py-2 px-2 text-right">Qty</th>
-                    <th class="py-2 px-2 text-right">Gross / Net</th>
+                    <th class="py-2 px-2 text-right">Gross / Stone / Deduction / Net · Diamond</th>
                     <th class="py-2 px-2 text-right">Rate</th>
                     <th class="py-2 px-2 text-right">Making</th>
                     <th class="py-2 px-2 text-right">Taxable / GST</th>
@@ -91,7 +91,7 @@
                             @endif
                         </td>
                         <td class="py-2 px-2 text-right">{{ $item->quantity }}</td>
-                        <td class="py-2 px-2 text-right">{{ number_format($item->gross_weight * $item->quantity, 3) }} / {{ number_format($item->net_weight * $item->quantity, 3) }}g</td>
+                        <td class="py-2 px-2 text-right">{{ number_format($item->gross_weight * $item->quantity, 3) }} / {{ number_format($item->stone_weight * $item->quantity, 3) }} / {{ number_format($item->other_deductions * $item->quantity, 3) }} / {{ number_format($item->net_weight * $item->quantity, 3) }}g<br><span class="text-slate-500">{{ number_format($item->diamond_weight * $item->quantity, 3) }}ct diamond</span></td>
                         <td class="py-2 px-2 text-right">₹{{ number_format($item->metal_rate, 0) }}</td>
                         <td class="py-2 px-2 text-right">₹{{ number_format($item->making_charge_amount, 2) }}</td>
                         <td class="py-2 px-2 text-right">₹{{ number_format($item->taxable_value, 2) }}<br><span class="text-slate-500">{{ number_format($item->gst_rate, 2) }}% · ₹{{ number_format($item->gst_amount, 2) }}</span></td>
