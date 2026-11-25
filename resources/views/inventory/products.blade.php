@@ -12,11 +12,17 @@
             <div class="grid grid-cols-2 gap-2">
                 <input type="text" name="sku" required placeholder="SKU e.g. SKU-RNG-009" class="border border-slate-300 rounded-lg px-3 py-2 text-xs">
                 <select name="category_id" required class="border border-slate-300 rounded-lg px-2.5 py-2 text-xs">
+                    <option value="" disabled @selected($categories->isEmpty())>Choose category</option>
                     @foreach($categories as $c)
                         <option value="{{ $c->id }}">{{ $c->name }}</option>
                     @endforeach
                 </select>
             </div>
+            @if($categories->isEmpty())
+                <a href="{{ route('categories.index') }}" class="inline-flex text-xs font-semibold text-amber-800 hover:underline">No categories yet — create one first</a>
+            @else
+                <a href="{{ route('categories.index') }}" class="inline-flex text-xs text-amber-800 hover:underline">Manage categories</a>
+            @endif
             <input type="text" name="name" required placeholder="Product Name" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs">
             <div class="grid grid-cols-3 gap-2">
                 <select name="product_type" class="border border-slate-300 rounded-lg px-2 py-2 text-xs">

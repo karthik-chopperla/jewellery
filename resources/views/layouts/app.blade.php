@@ -59,6 +59,9 @@
                 <a href="{{ route('products.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('products.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span data-sidebar-icon="Gem" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Product Master
                 </a>
+                <a href="{{ route('categories.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('categories.*') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
+                    <span data-sidebar-icon="Tags" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Product Categories
+                </a>
                 <a href="{{ route('inventory.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg {{ request()->routeIs('inventory.index') ? 'bg-amber-500/15 text-amber-300 font-medium' : 'hover:bg-slate-800/70' }}">
                     <span data-sidebar-icon="Package" class="inline-flex h-5 w-5 shrink-0 text-current" aria-hidden="true"></span> Inventory & Stock
                 </a>

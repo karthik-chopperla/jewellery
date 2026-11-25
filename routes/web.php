@@ -44,6 +44,10 @@ Route::middleware(['auth', EnsureUserIsActive::class])->group(function () {
 
     // Modules 2, 3, 13, 14, 15: Products, Inventory, Labels, Stones, Hallmarking
     Route::middleware('permission:inventory')->group(function () {
+        Route::get('/categories', [ProductInventoryController::class, 'categories'])->name('categories.index');
+        Route::post('/categories', [ProductInventoryController::class, 'storeCategory'])->name('categories.store');
+        Route::put('/categories/{category}', [ProductInventoryController::class, 'updateCategory'])->name('categories.update');
+        Route::delete('/categories/{category}', [ProductInventoryController::class, 'destroyCategory'])->name('categories.destroy');
         Route::get('/products', [ProductInventoryController::class, 'products'])->name('products.index');
         Route::post('/products', [ProductInventoryController::class, 'storeProduct'])->name('products.store');
         Route::delete('/products/{product}', [ProductInventoryController::class, 'destroyProduct'])->name('products.destroy');

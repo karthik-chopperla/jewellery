@@ -689,6 +689,55 @@ class JewelleryErpTest extends TestCase
             ->assertSee('Register each physical piece', false);
     }
 
+    public function test_category_management_creates_and_updates_categories_used_by_pos(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->actingAs($admin);
+
+        $this->get(route('categories.index'))
+            ->assertOk()
+            ->assertSee('Add a Category');
+
+        $this->post(route('categories.store'), [
+            'name' => 'Demo Rings',
+            'code' => 'demo-ring',
+            'default_making_charge_type' => 'fixed',
+            'default_making_charge_value' => 725,
+            'default_wastage_pct' => 1.5,
+            'gst_rate' => 3,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $category = \App\Models\Category::where('name', 'Demo Rings')->firstOrFail();
+        $this->assertSame('DEMO-RING', $category->code);
+
+        $this->put(route('categories.update', $category), [
+            'name' => 'Demo Rings',
+            'code' => 'DRING',
+            'default_making_charge_type' => 'per_gram',
+            'default_making_charge_value' => 800,
+            'default_wastage_pct' => 2,
+            'gst_rate' => 3,
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->get(route('pos.index'))
+            ->assertOk()
+            ->assertSee('Demo Rings')
+            ->assertSee('"default_making_charge_type":"per_gram"', false)
+            ->assertSee('"default_making_charge_value":800', false)
+            ->assertSee('applyCategoryDefaults(row)', false);
+
+        $usedCategory = \App\Models\Product::firstOrFail()->category;
+        $this->delete(route('categories.destroy', $usedCategory))
+            ->assertRedirect()
+            ->assertSessionHasErrors('category');
+        $this->assertDatabaseHas('categories', ['id' => $usedCategory->id]);
+
+        $this->delete(route('categories.destroy', $category))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+        $this->assertDatabaseMissing('categories', ['id' => $category->id]);
+    }
+
     public function test_settings_page_and_business_name_update(): void
     {
         $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();

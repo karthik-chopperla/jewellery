@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class ProductInventoryController extends Controller
 {
@@ -39,6 +40,63 @@ class ProductInventoryController extends Controller
         $suppliers = Supplier::where('is_active', true)->get();
 
         return view('inventory.products', compact('products', 'categories', 'suppliers'));
+    }
+
+    public function categories()
+    {
+        $categories = Category::withCount('products')->orderBy('name')->get();
+
+        return view('inventory.categories', compact('categories'));
+    }
+
+    public function storeCategory(Request $request)
+    {
+        $data = $this->validateCategory($request);
+        $category = Category::create($data);
+        AuditService::log('Categories', 'create', "Created category {$category->name} ({$category->code})", $category);
+
+        return back()->with('success', "Category {$category->name} created. It is now available in Product Master and POS.");
+    }
+
+    public function updateCategory(Request $request, Category $category)
+    {
+        $data = $this->validateCategory($request, $category);
+        $category->update($data);
+        AuditService::log('Categories', 'update', "Updated category {$category->name} ({$category->code})", $category);
+
+        return back()->with('success', "Category {$category->name} updated.");
+    }
+
+    public function destroyCategory(Category $category)
+    {
+        if ($category->products()->exists()) {
+            return back()->withErrors([
+                'category' => "Cannot delete {$category->name} because products are using it. Reassign or remove those products first.",
+            ]);
+        }
+
+        $name = $category->name;
+        $category->delete();
+        AuditService::log('Categories', 'delete', "Deleted category {$name} (#{$category->id})");
+
+        return back()->with('success', "Category {$name} deleted.");
+    }
+
+    private function validateCategory(Request $request, ?Category $category = null): array
+    {
+        $request->merge([
+            'name' => trim((string) $request->input('name')),
+            'code' => Str::upper(trim((string) $request->input('code'))),
+        ]);
+
+        return $request->validate([
+            'name' => ['required', 'string', 'max:255', Rule::unique('categories', 'name')->ignore($category?->id)],
+            'code' => ['required', 'string', 'max:20', Rule::unique('categories', 'code')->ignore($category?->id)],
+            'default_making_charge_type' => 'required|in:per_gram,percentage,fixed',
+            'default_making_charge_value' => 'required|numeric|min:0|max:100000000',
+            'default_wastage_pct' => 'required|numeric|min:0|max:100',
+            'gst_rate' => 'required|numeric|min:0|max:100',
+        ]);
     }
 
     public function storeProduct(Request $request)

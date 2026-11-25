@@ -78,7 +78,14 @@ class PosController extends Controller
 
         $recentInvoices = Invoice::with(['customer', 'branch'])->latest('billed_at')->take(10)->get();
         $oldGoldAvailable = OldGoldPurchase::with('customer')->where('status', 'approved')->whereNull('invoice_id')->get();
-        $categories = Category::orderBy('name')->get(['id', 'name', 'gst_rate']);
+        $categories = Category::orderBy('name')->get([
+            'id',
+            'name',
+            'gst_rate',
+            'default_making_charge_type',
+            'default_making_charge_value',
+            'default_wastage_pct',
+        ]);
         $defaultGstRate = (float) Setting::get('default_gst_rate', '3');
         $necklaceCategory = $categories->first(fn ($category) => str_contains(strtolower($category->name), 'necklace'));
         $ringCategory = $categories->first(fn ($category) => str_contains(strtolower($category->name), 'ring'));

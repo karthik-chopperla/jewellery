@@ -199,7 +199,7 @@
                                             <label class="text-[11px] text-slate-600">Item code / SKU<input x-model="row.sku" :readonly="row.inventory_item_id" class="mt-1 w-full rounded border px-2 py-1.5 font-mono text-xs"></label>
                                             <label class="text-[11px] text-slate-600">Barcode<input x-model="row.barcode" @keydown.enter.prevent="scanIntoRow(row)" :readonly="row.inventory_item_id" class="mt-1 w-full rounded border px-2 py-1.5 font-mono text-xs"></label>
                                             <label class="text-[11px] text-slate-600">HUID<input x-model="row.huid" :readonly="row.inventory_item_id" class="mt-1 w-full rounded border px-2 py-1.5 font-mono text-xs"></label>
-                                            <label class="text-[11px] text-slate-600">Category<select x-model="row.category_id" :disabled="row.inventory_item_id" class="mt-1 w-full rounded border px-2 py-1.5 text-xs"><option value="">Choose category</option>@foreach($categories as $category)<option value="{{ $category->id }}">{{ $category->name }}</option>@endforeach</select></label>
+                                            <label class="text-[11px] text-slate-600">Category<select x-model="row.category_id" @change="applyCategoryDefaults(row)" :disabled="row.inventory_item_id" class="mt-1 w-full rounded border px-2 py-1.5 text-xs"><option value="">Choose category</option>@foreach($categories as $category)<option value="{{ $category->id }}">{{ $category->name }}</option>@endforeach</select></label>
                                             <label class="text-[11px] text-slate-600">HSN code<input x-model="row.hsn_code" :readonly="row.inventory_item_id" class="mt-1 w-full rounded border px-2 py-1.5 text-xs"></label>
                                             <label class="text-[11px] text-slate-600">Metal / purity<div class="mt-1 flex gap-1"><select x-model="row.metal_type" @change="updateRate(row); queuePreview()" :disabled="row.inventory_item_id" class="min-w-0 flex-1 rounded border px-2 py-1.5 text-xs"><option>Gold</option><option>Silver</option><option>Platinum</option><option>Diamond</option></select><select x-model="row.purity" @change="updateRate(row); queuePreview()" :disabled="row.inventory_item_id" class="min-w-0 flex-1 rounded border px-2 py-1.5 text-xs"><template x-for="purity in puritiesFor(row.metal_type)" :key="purity"><option :value="purity" x-text="purity"></option></template></select></div></label>
                                             <label class="text-[11px] text-slate-600">Gross weight (g)<input type="number" min="0" step="0.001" x-model.number="row.gross_weight" @input="queuePreview()" :readonly="row.inventory_item_id" class="mt-1 w-full rounded border px-2 py-1.5 text-xs"></label>
@@ -373,6 +373,7 @@ function jewelleryPos() {
         customerUrl: @json(route('pos.customers.quick-store')),
         search: '',
         categoryFilter: '',
+        categories: @json($categories),
         scanError: '',
         barcodeLookupUrl: '',
         cart: [],
@@ -436,6 +437,15 @@ function jewelleryPos() {
             }
             const rate = this.rateCatalog.find(entry => entry.metal_type === row.metal_type && entry.purity === row.purity);
             row.metal_rate = rate ? rate.rate : 0;
+        },
+        applyCategoryDefaults(row) {
+            const category = this.categories.find(option => String(option.id) === String(row.category_id));
+            if (!category) return;
+            row.gst_rate = Number(category.gst_rate);
+            row.making_charge_type = category.default_making_charge_type;
+            row.making_charge_rate = Number(category.default_making_charge_value);
+            row.wastage_pct = Number(category.default_wastage_pct);
+            this.queuePreview();
         },
         async addFirstMatch() {
             const query = this.search.trim();
