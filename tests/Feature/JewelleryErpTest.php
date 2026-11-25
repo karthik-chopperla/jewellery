@@ -154,7 +154,10 @@ class JewelleryErpTest extends TestCase
         $this->get('/login')
             ->assertOk()
             ->assertSee('Abharan ERP')
-            ->assertDontSee('JewelERP');
+            ->assertDontSee('JewelERP')
+            ->assertSee('id="login-progress"', false)
+            ->assertSee('Still waiting for the server.', false)
+            ->assertSee("navigator.wakeLock.request('screen')", false);
     }
 
     public function test_all_modules_load_for_authenticated_admin(): void

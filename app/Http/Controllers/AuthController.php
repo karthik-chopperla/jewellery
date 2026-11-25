@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -42,7 +43,11 @@ class AuthController extends Controller
             ])->onlyInput('email');
         }
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        $stageStartedAt = microtime(true);
+        $authenticated = Auth::attempt($credentials, $request->boolean('remember'));
+        $this->logSlowLoginStage('credential_check', $stageStartedAt);
+
+        if ($authenticated) {
             $user = Auth::user();
 
             if (! $user instanceof User) {
@@ -52,9 +57,12 @@ class AuthController extends Controller
 
             if (! $user->is_active) {
                 Auth::logout();
+                $stageStartedAt = microtime(true);
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
+                $this->logSlowLoginStage('inactive_session_cleanup', $stageStartedAt);
 
+                $stageStartedAt = microtime(true);
                 LoginHistory::create([
                     'user_id' => $user->id,
                     'email' => $user->email,
@@ -63,6 +71,7 @@ class AuthController extends Controller
                     'status' => 'blocked_inactive',
                     'logged_in_at' => now(),
                 ]);
+                $this->logSlowLoginStage('inactive_login_history_write', $stageStartedAt);
 
                 return back()->withErrors([
                     'email' => 'Your account has been deactivated. Please contact your administrator.',
@@ -70,8 +79,11 @@ class AuthController extends Controller
             }
 
             RateLimiter::clear($throttleKey);
+            $stageStartedAt = microtime(true);
             $request->session()->regenerate();
+            $this->logSlowLoginStage('session_regeneration', $stageStartedAt);
 
+            $stageStartedAt = microtime(true);
             LoginHistory::create([
                 'user_id' => $user->id,
                 'email' => $user->email,
@@ -80,14 +92,18 @@ class AuthController extends Controller
                 'status' => 'success',
                 'logged_in_at' => now(),
             ]);
+            $this->logSlowLoginStage('successful_login_history_write', $stageStartedAt);
 
+            $stageStartedAt = microtime(true);
             AuditService::log('Auth', 'login', "{$user->name} logged in");
+            $this->logSlowLoginStage('login_audit_write', $stageStartedAt);
 
             return redirect()->intended(route($this->homeRoute($user)));
         }
 
         RateLimiter::hit($throttleKey, 60);
 
+        $stageStartedAt = microtime(true);
         LoginHistory::create([
             'email' => $credentials['email'],
             'ip_address' => $request->ip(),
@@ -95,6 +111,7 @@ class AuthController extends Controller
             'status' => 'failed',
             'logged_in_at' => now(),
         ]);
+        $this->logSlowLoginStage('failed_login_history_write', $stageStartedAt);
 
         return back()->withErrors(['email' => 'Invalid email or password.'])->onlyInput('email');
     }
@@ -133,5 +150,17 @@ class AuthController extends Controller
         }
 
         abort(403);
+    }
+
+    private function logSlowLoginStage(string $stage, float $startedAt): void
+    {
+        $durationMs = (microtime(true) - $startedAt) * 1000;
+
+        if ($durationMs >= 3000) {
+            Log::warning('Slow login processing stage', [
+                'stage' => $stage,
+                'duration_ms' => round($durationMs),
+            ]);
+        }
     }
 }

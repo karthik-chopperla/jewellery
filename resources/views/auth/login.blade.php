@@ -27,7 +27,7 @@
             </div>
         @endif
 
-        <form action="{{ route('login.post') }}" method="POST" class="space-y-4">
+        <form id="login-form" action="{{ route('login.post') }}" method="POST" class="space-y-4">
             @csrf
             <div>
                 <label for="email" class="block text-xs font-semibold text-slate-600 uppercase mb-1">Email Address</label>
@@ -43,9 +43,99 @@
                     <span>Keep me signed in</span>
                 </label>
             </div>
-            <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-lg text-sm transition">Sign In</button>
+            <button id="login-submit" type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-lg text-sm transition disabled:cursor-wait disabled:opacity-70">
+                <span id="login-spinner" class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white align-[-3px] mr-2" aria-hidden="true"></span>
+                <span id="login-submit-label">Sign In</span>
+            </button>
+            <p id="login-progress" class="hidden text-center text-xs text-slate-600" role="status" aria-live="polite"></p>
         </form>
     </div>
 </div>
+<script>
+(() => {
+    const form = document.getElementById('login-form');
+    const button = document.getElementById('login-submit');
+    const buttonLabel = document.getElementById('login-submit-label');
+    const spinner = document.getElementById('login-spinner');
+    const progress = document.getElementById('login-progress');
+
+    if (!form || !button || !buttonLabel || !spinner || !progress) {
+        return;
+    }
+
+    let submitting = false;
+    let wakeLock = null;
+    let wakeLockUnavailable = false;
+    let progressMessage = '';
+
+    const setProgressMessage = (message) => {
+        progressMessage = message;
+        progress.textContent = message + (wakeLockUnavailable
+            ? ' This browser could not prevent screen sleep; wake the display if it turns off.'
+            : '');
+    };
+
+    const requestWakeLock = async () => {
+        if (!('wakeLock' in navigator)) {
+            wakeLockUnavailable = true;
+            if (submitting) {
+                setProgressMessage(progressMessage);
+            }
+            return;
+        }
+
+        if (document.visibilityState !== 'visible') {
+            return;
+        }
+
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            wakeLock.addEventListener('release', () => {
+                wakeLock = null;
+            });
+        } catch {
+            wakeLock = null;
+            wakeLockUnavailable = true;
+            if (submitting) {
+                setProgressMessage(progressMessage);
+            }
+        }
+    };
+
+    form.addEventListener('submit', (event) => {
+        if (submitting) {
+            event.preventDefault();
+            return;
+        }
+
+        submitting = true;
+        button.disabled = true;
+        buttonLabel.textContent = 'Signing in…';
+        spinner.classList.remove('hidden');
+        spinner.classList.add('inline-block');
+        setProgressMessage('Sending your sign-in securely…');
+        progress.classList.remove('hidden');
+        void requestWakeLock();
+
+        window.setTimeout(() => {
+            if (submitting) {
+                setProgressMessage('Still waiting for the server. Keep this page open and do not submit again.');
+            }
+        }, 12000);
+
+        window.setTimeout(() => {
+            if (submitting) {
+                setProgressMessage('This is taking longer than usual. The service may be starting up; please keep waiting.');
+            }
+        }, 35000);
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (submitting && document.visibilityState === 'visible' && !wakeLock) {
+            void requestWakeLock();
+        }
+    });
+})();
+</script>
 </body>
 </html>
