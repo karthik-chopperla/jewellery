@@ -38,7 +38,7 @@
         <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
             <div class="text-xs font-medium text-slate-500">Current Stock Valuation</div>
             <div class="text-2xl font-bold text-amber-700 mt-1">₹{{ number_format($stockValuation, 0) }}</div>
-            <div class="text-xs text-slate-500 mt-1">{{ $availableItems->count() }} pieces in vault</div>
+            <div class="text-xs text-slate-500 mt-1">{{ $availableItemsCount }} pieces in vault</div>
         </div>
         <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
             <div class="text-xs font-medium text-slate-500">Metal Inventory Weight</div>

@@ -147,11 +147,11 @@
 
             <div class="flex items-center gap-4 text-xs">
                 <div class="hidden md:flex items-center gap-3 bg-amber-50 border border-amber-200/80 px-3 py-1.5 rounded-full text-amber-900 font-medium">
-                    <span>24K: ₹{{ number_format(\App\Models\MetalRate::latestRate('Gold', '24K'), 0) }}/g</span>
+                    <span>24K: ₹{{ number_format($topbarGoldRate24 ?? \App\Models\MetalRate::latestRate('Gold', '24K'), 0) }}/g</span>
                     <span class="text-amber-300">|</span>
-                    <span>22K: ₹{{ number_format(\App\Models\MetalRate::latestRate('Gold', '22K'), 0) }}/g</span>
+                    <span>22K: ₹{{ number_format($topbarGoldRate22 ?? \App\Models\MetalRate::latestRate('Gold', '22K'), 0) }}/g</span>
                     <span class="text-amber-300">|</span>
-                    <span>Silver: ₹{{ number_format(\App\Models\MetalRate::latestRate('Silver', '999'), 0) }}/g</span>
+                    <span>Silver: ₹{{ number_format($topbarSilverRate ?? \App\Models\MetalRate::latestRate('Silver', '999'), 0) }}/g</span>
                 </div>
                 @if(auth()->user()->hasPermission('pos'))
                 <a href="{{ route('pos.index') }}" class="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-lg font-medium transition">+ New Bill</a>

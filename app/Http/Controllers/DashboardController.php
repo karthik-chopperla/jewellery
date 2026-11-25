@@ -43,30 +43,76 @@ class DashboardController extends Controller
             ->where('diamond_charge', '>', 0)
             ->sum('line_total');
 
-        // Inventory metrics
-        $availableItems = InventoryItem::with('product')
-            ->where('status', 'available')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+        // Aggregate stock in SQL so dashboard load does not grow with one query per item.
+        $availableItems = InventoryItem::query()
+            ->leftJoin('products', 'inventory_items.product_id', '=', 'products.id')
+            ->where('inventory_items.status', 'available')
+            ->when($branchId, fn ($q) => $q->where('inventory_items.branch_id', $branchId))
+            ->selectRaw("COALESCE(products.metal_type, 'Gold') as metal_type")
+            ->addSelect('inventory_items.purity', 'inventory_items.branch_id')
+            ->selectRaw('COUNT(inventory_items.id) as item_count')
+            ->selectRaw('SUM(inventory_items.net_weight) as net_weight')
+            ->selectRaw('SUM(inventory_items.stone_charge) as stone_charge')
+            ->selectRaw('SUM(inventory_items.diamond_charge) as diamond_charge')
+            ->groupByRaw("COALESCE(products.metal_type, 'Gold'), inventory_items.purity, inventory_items.branch_id")
             ->get();
+        $availableItemsCount = (int) $availableItems->sum('item_count');
 
-        $goldRate22 = MetalRate::latestRate('Gold', '22K', $branchId);
-        $goldRate24 = MetalRate::latestRate('Gold', '24K', $branchId);
-        $silverRate = MetalRate::latestRate('Silver', '999', $branchId);
-        $platinumRate = MetalRate::latestRate('Platinum', '950', $branchId);
+        $rateMetalTypes = $availableItems->pluck('metal_type')->push('Gold', 'Silver', 'Platinum')->unique()->all();
+        $ratePurities = $availableItems->pluck('purity')->filter()->push('22K', '24K', '999', '950')->unique()->all();
+        $rates = MetalRate::whereIn('metal_type', $rateMetalTypes)
+            ->whereIn('purity', $ratePurities)
+            ->where('status', 'approved')
+            ->where('effective_at', '<=', now())
+            ->orderByDesc('effective_at')
+            ->get(['metal_type', 'purity', 'branch_id', 'rate_per_gram']);
+
+        $ratesByScope = [];
+        $latestRatesByType = [];
+        foreach ($rates as $rate) {
+            $key = $rate->metal_type.'|'.$rate->purity;
+            $scope = $rate->branch_id === null ? 'global' : (string) $rate->branch_id;
+            $ratesByScope[$key][$scope] ??= (float) $rate->rate_per_gram;
+            $latestRatesByType[$key] ??= (float) $rate->rate_per_gram;
+        }
+
+        $rateFor = static function (string $metal, string $purity, $rateBranchId) use ($ratesByScope, $latestRatesByType): float {
+            $key = $metal.'|'.$purity;
+            $scopedRates = $ratesByScope[$key] ?? [];
+
+            if ($rateBranchId) {
+                return $scopedRates[(string) $rateBranchId]
+                    ?? $scopedRates['global']
+                    ?? $latestRatesByType[$key]
+                    ?? 0.0;
+            }
+
+            return $scopedRates['global'] ?? $latestRatesByType[$key] ?? 0.0;
+        };
+
+        $goldRate22 = $rateFor('Gold', '22K', $branchId);
+        $goldRate24 = $rateFor('Gold', '24K', $branchId);
+        $silverRate = $rateFor('Silver', '999', $branchId);
+        $platinumRate = $rateFor('Platinum', '950', $branchId);
+        $topbarGoldRate24 = $rateFor('Gold', '24K', null);
+        $topbarGoldRate22 = $rateFor('Gold', '22K', null);
+        $topbarSilverRate = $rateFor('Silver', '999', null);
 
         $goldWeight = 0;
         $silverWeight = 0;
         $stockValuation = 0;
 
         foreach ($availableItems as $item) {
-            $metal = $item->product->metal_type ?? 'Gold';
-            $rate = MetalRate::latestRate($metal, $item->purity, $item->branch_id) ?: $goldRate22;
+            $metal = $item->metal_type;
+            $rate = $rateFor($metal, (string) $item->purity, $item->branch_id) ?: $goldRate22;
             if ($metal === 'Gold') {
                 $goldWeight += (float) $item->net_weight;
             } elseif ($metal === 'Silver') {
                 $silverWeight += (float) $item->net_weight;
             }
-            $stockValuation += ((float) $item->net_weight * $rate) + (float) $item->stone_charge + (float) $item->diamond_charge;
+            $stockValuation += ((float) $item->net_weight * $rate)
+                + (float) $item->stone_charge
+                + (float) $item->diamond_charge;
         }
 
         $diamondCarats = DiamondStone::where('status', 'in_stock')->sum('carat_weight');
@@ -112,8 +158,9 @@ class DashboardController extends Controller
             'diamondCarats', 'totalPurchaseValue', 'supplierOutstanding', 'pendingOrders',
             'pendingRepairs', 'oldGoldCount', 'oldGoldValue', 'todayProfitEstimate',
             'goldRate24', 'goldRate22', 'silverRate', 'platinumRate',
+            'topbarGoldRate24', 'topbarGoldRate22', 'topbarSilverRate',
             'branchSales', 'staffSales', 'rateHistory', 'pendingApprovals',
-            'lowConsumables', 'recentInvoices', 'availableItems'
+            'lowConsumables', 'recentInvoices', 'availableItemsCount'
         ));
     }
 }

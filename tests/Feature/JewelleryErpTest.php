@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\JewelleryPriceCalculator;
 use Database\Seeders\DemoAdminSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -186,6 +187,26 @@ class JewelleryErpTest extends TestCase
             $response = $this->get($uri);
             $response->assertStatus(200, "Failed on route: {$uri}");
         }
+    }
+
+    public function test_dashboard_does_not_query_metal_rates_for_each_stock_item(): void
+    {
+        $admin = User::where('email', 'admin@jewelerp.in')->firstOrFail();
+        $this->assertGreaterThan(0, InventoryItem::where('status', 'available')->count());
+
+        $metalRateQueries = 0;
+        DB::listen(function ($query) use (&$metalRateQueries) {
+            if (stripos($query->sql, 'metal_rates') !== false) {
+                $metalRateQueries++;
+            }
+        });
+
+        $this->actingAs($admin)
+            ->get('/')
+            ->assertOk()
+            ->assertSee('pieces in vault');
+
+        $this->assertLessThanOrEqual(2, $metalRateQueries);
     }
 
     public function test_pos_checkout_creates_invoice_and_marks_item_sold(): void
